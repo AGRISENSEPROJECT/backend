@@ -4,23 +4,10 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const sendEmail = require('../emailService');
 
-// // Function to generate a random 5-character code in the required format
-// const generateCode = () => {
-//     const numbers = ['10', '20', '30', '40', '50', '60', '70', '80', '90'];
-//     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
-//     // Select random numbers and letters
-//     const randomNumber = numbers[Math.floor(Math.random() * numbers.length)];
-//     const randomLetter = letters[Math.floor(Math.random() * letters.length)];
-    
-//     return `${randomNumber} ${randomLetter}`;
-// };
-
 const generateCode = () => {
     const numbers = ['10', '20', '30', '40', '50', '60', '70', '80', '90'];
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
-    // Select two random numbers and two random letters
     const randomNumber1 = numbers[Math.floor(Math.random() * numbers.length)];
     const randomLetter1 = letters[Math.floor(Math.random() * letters.length)];
     const randomNumber2 = numbers[Math.floor(Math.random() * numbers.length)];
@@ -29,7 +16,6 @@ const generateCode = () => {
     // Format the code with four parts
     return `${randomNumber1} ${randomLetter1} ${randomNumber2} ${randomLetter2}`;
 };
-
 
 const registerUser = async (req, res) => {
     const { username, email, password } = req.body;
@@ -103,4 +89,23 @@ const loginUser = async (req, res) => {
     res.status(200).json({ message: 'Login successful', token });
 };
 
-module.exports = { registerUser, loginUser };
+const searchUsers = async (req, res) => {
+    try {
+        const query = req.query.q;
+        const users = await User.find({ name: new RegExp(query, "i") });
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+const getAllUserIds = async (req, res) => {
+    try {
+        // Fetch all user IDs
+        const userIds = await User.find({}, '_id'); // The second argument is the projection to only get _id
+        res.status(200).json(userIds);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+module.exports = { registerUser, loginUser, searchUsers ,getAllUserIds};
