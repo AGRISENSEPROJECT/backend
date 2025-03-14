@@ -1,3 +1,4 @@
+![RCA Image](rca.png)
 # AgriSense - Agricultural Innovation for Sustainable Farming
 
 ## RWANDA CODING ACADEMY  
@@ -96,6 +97,7 @@ AgriSense will follow a phased implementation approach to ensure successful adop
 ## Team and Leadership
 
 The AgriSense project is led by a dedicated team of professionals with expertise in agricultural technology, business, and sustainable farming practices:
+
 
 - **Irasubiza Saly Nelson**: Project Manager and visionary leader.
 - **Nibishaka Raphy**: Agricultural Technology Manager.
