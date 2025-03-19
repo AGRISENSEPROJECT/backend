@@ -9,6 +9,7 @@ const { Server } = require('socket.io');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJSDoc = require('swagger-jsdoc');
 const routers = require('./router/router');
+const weatherRoutes = require('./router/weather.js');
 
 // Initialize Express app
 const app = express();
@@ -37,7 +38,7 @@ const swaggerOptions = {
   apis: ["./router/*.js"],
 };
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerJSDoc(swaggerOptions)));
-
+app.use('/api/weather', weatherRoutes);
 // Authentication Routes
 app.get('/auth/google', passport.authenticate('google', {
   scope: ['openid', 'email', 'profile']
@@ -70,6 +71,7 @@ io.on('connection', (socket) => {
     socket.on('sendMessage', (data) => io.emit('receiveMessage', data));
     socket.on('disconnect', () => console.log('User disconnected:', socket.id));
 });
+
 
 connectDB();
 const PORT = process.env.PORT || 5000;
