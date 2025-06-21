@@ -11,7 +11,7 @@
   "author": "nelson",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.8.3",
+    "axios": "^1.10.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -21,6 +21,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.13.1",
     "mongoose": "^8.11.0",
+    "multer": "^2.0.1",
     "nodemailer": "^6.10.0",
     "nodemon": "^3.1.9",
     "passport": "^0.7.0",

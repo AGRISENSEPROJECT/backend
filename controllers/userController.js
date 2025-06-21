@@ -7,12 +7,10 @@ const sendEmail = require('../emailService');
 const generateCode = () => {
     const numbers = ['10', '20', '30', '40', '50', '60', '70', '80', '90'];
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
     const randomNumber1 = numbers[Math.floor(Math.random() * numbers.length)];
     const randomLetter1 = letters[Math.floor(Math.random() * letters.length)];
     const randomNumber2 = numbers[Math.floor(Math.random() * numbers.length)];
     const randomLetter2 = letters[Math.floor(Math.random() * letters.length)];
-    
     return `${randomNumber1} ${randomLetter1} ${randomNumber2} ${randomLetter2}`;
 };
 
@@ -21,17 +19,12 @@ const registerUser = async (req, res) => {
     if (!username || !email || !password) {
         return res.status(400).json({ message: 'All fields are required' });
     }
-
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ message: 'User already exists' });
-
     const hashedPassword = await bcrypt.hash(password, 10);
     const userCode = generateCode();
-
-    const user = await User.create({ username, email, password: hashedPassword, code: userCode });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
+    const user = await User.create({ username, email, password: hashedPassword });
+    const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const emailContent = `
         <div style="font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; text-align: center;">
             <h2>Welcome to AGRISENSE, ${username}!</h2>
@@ -44,21 +37,16 @@ const registerUser = async (req, res) => {
         </div>
     `;
     sendEmail(email, "Welcome to AGRISENSE!", emailContent);
-
     res.status(201).json({ message: 'User registered successfully', token });
 };
 
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
+    const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const emailContent = `
         <div style="font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; text-align: center;">
             <h2>Hello ${user.username},</h2>
@@ -71,15 +59,13 @@ const loginUser = async (req, res) => {
         </div>
     `;
     sendEmail(email, "Security Alert: Successful Login", emailContent);
-
-    res.status(200).json({ message: 'Login successful', token ,  user});
+    res.status(200).json({ message: 'Login successful', token, user });
 };
-
 
 const searchUsers = async (req, res) => {
     try {
         const query = req.query.q;
-        const users = await User.find({ name: new RegExp(query, "i") });
+        const users = await User.find({ username: new RegExp(query, "i") });
         res.json(users);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -95,4 +81,4 @@ const getAllUserIds = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, searchUsers ,getAllUserIds};
+module.exports = { registerUser, loginUser, searchUsers, getAllUserIds };
