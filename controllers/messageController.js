@@ -1,40 +1,58 @@
-const Message = require("../models/messageModel");
+const Message = require('../models/messageModel');
+const Farm = require('../models/Farm');
 
 exports.sendMessage = async (req, res) => {
     try {
-        const { sender, receiver, groupId, message, type } = req.body;
-
-        if (type === "direct" && !receiver) {
-            return res.status(400).json({ error: "Receiver is required for direct messages" });
+        const { sender, receiver, groupId, farmId, message, type } = req.body;
+        const userId = req.user.id;
+        if (type === 'direct' && !receiver) {
+            return res.status(400).json({ error: 'Receiver is required for direct messages' });
         }
-        if (type === "group" && !groupId) {
-            return res.status(400).json({ error: "Group ID is required for group messages" });
+        if (type === 'group' && !groupId) {
+            return res.status(400).json({ error: 'Group ID is required for group messages' });
         }
-
-        const newMessage = await Message.create({ sender, receiver, groupId, message, type });
+        if (type === 'farm' && !farmId) {
+            return res.status(400).json({ error: 'Farm ID is required for farm messages' });
+        }
+        if (farmId) {
+            const farm = await Farm.findById(farmId);
+            if (!farm || farm.owner.toString() !== userId) {
+                return res.status(403).json({ error: 'Unauthorized or farm not found' });
+            }
+        }
+        const newMessage = await Message.create({ sender, receiver, groupId, farm: farmId, message, type });
         res.json(newMessage);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
+
 exports.getMessages = async (req, res) => {
     try {
-        const { sender, receiver, groupId, type } = req.query;
+        const { sender, receiver, groupId, farmId, type } = req.query;
+        const userId = req.user.id;
         let query = {};
-
-        if (type === "direct") {
+        if (type === 'direct') {
             if (!sender || !receiver) {
-                return res.status(400).json({ error: "Sender and receiver are required for direct messages" });
+                return res.status(400).json({ error: 'Sender and receiver are required for direct messages' });
             }
-            query = { sender, receiver, type: "direct" };
-        } else if (type === "group") {
+            query = { sender, receiver, type: 'direct' };
+        } else if (type === 'group') {
             if (!groupId) {
-                return res.status(400).json({ error: "Group ID is required for group messages" });
+                return res.status(400).json({ error: 'Group ID is required for group messages' });
             }
-            query = { groupId, type: "group" };
+            query = { groupId, type: 'group' };
+        } else if (type === 'farm') {
+            if (!farmId) {
+                return res.status(400).json({ error: 'Farm ID is required for farm messages' });
+            }
+            const farm = await Farm.findById(farmId);
+            if (!farm || farm.owner.toString() !== userId) {
+                return res.status(403).json({ error: 'Unauthorized or farm not found' });
+            }
+            query = { farm: farmId, type: 'farm' };
         }
-
-        const messages = await Message.find(query).sort("timestamp");
+        const messages = await Message.find(query).sort('timestamp');
         res.json(messages);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -43,21 +61,17 @@ exports.getMessages = async (req, res) => {
 
 exports.getMessagesForUser = async (req, res) => {
     try {
-        const { userId } = req.params;
-
-        // Find messages where the current user is the receiver
-        const messages = await Message.find({ receiver: userId }).sort({ timestamp: -1 }); // Sort by timestamp in descending order (latest first)
-
-        if (!messages) {
-            return res.status(404).json({ message: 'No messages found for this user.' });
-        }
-
-        // Return the messages
-        res.status(200).json(messages);
+        const userId = req.user.id;
+        const farms = await Farm.find({ owner: userId }).select('_id');
+        const farmIds = farms.map(farm => farm._id);
+        const messages = await Message.find({
+            $or: [
+                { receiver: userId, type: 'direct' },
+                { farm: { $in: farmIds }, type: 'farm' }
+            ]
+        }).sort({ timestamp: -1 });
+        res.json(messages);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Server error', error: err.message });
+        res.status(500).json({ error: err.message });
     }
 };
-
-
