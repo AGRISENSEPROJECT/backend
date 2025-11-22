@@ -12,6 +12,7 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto, VerifyOtpDto } from './dto/login.dto';
+import { VerifyGoogleTokenDto, VerifyFacebookTokenDto } from './dto/verify-token.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -66,6 +67,16 @@ export class AuthController {
     const result = req.user as any;
     // Redirect to frontend with token
     res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/callback?token=${result?.access_token || ''}`);
+  }
+
+  @Post('google/verify-token')
+  async verifyGoogleToken(@Body() verifyGoogleTokenDto: VerifyGoogleTokenDto) {
+    return this.authService.verifyGoogleToken(verifyGoogleTokenDto);
+  }
+
+  @Post('facebook/verify-token')
+  async verifyFacebookToken(@Body() verifyFacebookTokenDto: VerifyFacebookTokenDto) {
+    return this.authService.verifyFacebookToken(verifyFacebookTokenDto);
   }
 
   @Get('profile')

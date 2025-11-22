@@ -66,13 +66,15 @@ The API will be available at `http://localhost:3000/api`
 
 ### Authentication
 ```
-POST /api/auth/register          # Register with email/password
-POST /api/auth/login            # Login with email/password
-POST /api/auth/verify-otp       # Verify email with OTP
-POST /api/auth/resend-otp       # Resend OTP
-GET  /api/auth/google           # Google OAuth
-GET  /api/auth/facebook         # Facebook OAuth
-GET  /api/auth/profile          # Get user profile (protected)
+POST /api/auth/register              # Register with email/password
+POST /api/auth/login                # Login with email/password
+POST /api/auth/verify-otp           # Verify email with OTP
+POST /api/auth/resend-otp           # Resend OTP
+GET  /api/auth/google               # Google OAuth (Web)
+GET  /api/auth/facebook             # Facebook OAuth (Web)
+POST /api/auth/google/verify-token  # Verify Google ID token (Mobile)
+POST /api/auth/facebook/verify-token # Verify Facebook token (Mobile)
+GET  /api/auth/profile              # Get user profile (protected)
 ```
 
 ### Farm Management
@@ -96,11 +98,18 @@ POST /api/test/email           # Test email sending functionality
 
 ## Registration Flow
 
+### Web Registration
 1. **User Registration**: Email, username, password
 2. **Email Verification**: OTP sent to email
 3. **Farm Creation**: Name, size, soil type
 4. **Location Setup**: Country, district, GPS coordinates
 5. **Owner Information**: Name, phone, email
+
+### Mobile OAuth Registration
+1. **Social Login**: User authenticates with Google/Facebook on device
+2. **Token Verification**: App sends ID/access token to backend
+3. **User Creation**: Backend verifies token and creates/logs in user
+4. **Farm Setup**: Same flow as web registration
 
 ## Environment Variables
 
@@ -208,6 +217,22 @@ Authorization: Bearer <your-jwt-token>
   "name": "Green Valley Farm",
   "size": 25.5,
   "soilType": "loamy"
+}
+```
+
+### 5. Mobile Google Authentication
+```json
+POST /api/auth/google/verify-token
+{
+  "idToken": "google-id-token-from-mobile-app"
+}
+```
+
+### 6. Mobile Facebook Authentication
+```json
+POST /api/auth/facebook/verify-token
+{
+  "accessToken": "facebook-access-token-from-mobile-app"
 }
 ```
 

@@ -13,6 +13,8 @@ import { RegisterDto, SocialRegisterDto } from './dto/register.dto';
 import { LoginDto, VerifyOtpDto } from './dto/login.dto';
 import { EmailService } from './email.service';
 import { RedisService } from './redis.service';
+import { TokenVerificationService } from './token-verification.service';
+import { VerifyGoogleTokenDto, VerifyFacebookTokenDto } from './dto/verify-token.dto';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +24,7 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private redisService: RedisService,
+    private tokenVerificationService: TokenVerificationService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -157,6 +160,108 @@ export class AuthService {
     }
     
     return user;
+  }
+
+  async verifyGoogleToken(verifyGoogleTokenDto: VerifyGoogleTokenDto) {
+    const { idToken } = verifyGoogleTokenDto;
+
+    try {
+      const googleUser = await this.tokenVerificationService.verifyGoogleToken(idToken);
+      
+      // Check if user exists
+      let user = await this.userRepository.findOne({
+        where: [
+          { email: googleUser.email },
+          { providerId: googleUser.sub, provider: AuthProvider.GOOGLE }
+        ],
+        relations: ['farm'],
+      });
+
+      if (user) {
+        // Update user info if needed
+        if (!user.providerId && user.provider === AuthProvider.LOCAL) {
+          user.provider = AuthProvider.GOOGLE;
+          user.providerId = googleUser.sub;
+          user.isEmailVerified = true;
+          await this.userRepository.save(user);
+        }
+        return this.generateTokens(user);
+      }
+
+      // Create new user
+      const username = this.generateUsernameFromEmail(googleUser.email);
+      user = this.userRepository.create({
+        email: googleUser.email,
+        username,
+        provider: AuthProvider.GOOGLE,
+        providerId: googleUser.sub,
+        isEmailVerified: true,
+      });
+
+      await this.userRepository.save(user);
+      console.log(`✅ New Google user created: ${googleUser.email}`);
+      
+      return this.generateTokens(user);
+    } catch (error) {
+      console.error('Google token verification failed:', error);
+      throw new BadRequestException('Invalid Google token');
+    }
+  }
+
+  async verifyFacebookToken(verifyFacebookTokenDto: VerifyFacebookTokenDto) {
+    const { accessToken } = verifyFacebookTokenDto;
+
+    try {
+      const facebookUser = await this.tokenVerificationService.verifyFacebookToken(accessToken);
+      
+      if (!facebookUser.email) {
+        throw new BadRequestException('Facebook account must have an email address');
+      }
+
+      // Check if user exists
+      let user = await this.userRepository.findOne({
+        where: [
+          { email: facebookUser.email },
+          { providerId: facebookUser.id, provider: AuthProvider.FACEBOOK }
+        ],
+        relations: ['farm'],
+      });
+
+      if (user) {
+        // Update user info if needed
+        if (!user.providerId && user.provider === AuthProvider.LOCAL) {
+          user.provider = AuthProvider.FACEBOOK;
+          user.providerId = facebookUser.id;
+          user.isEmailVerified = true;
+          await this.userRepository.save(user);
+        }
+        return this.generateTokens(user);
+      }
+
+      // Create new user
+      const username = this.generateUsernameFromEmail(facebookUser.email);
+      user = this.userRepository.create({
+        email: facebookUser.email,
+        username,
+        provider: AuthProvider.FACEBOOK,
+        providerId: facebookUser.id,
+        isEmailVerified: true,
+      });
+
+      await this.userRepository.save(user);
+      console.log(`✅ New Facebook user created: ${facebookUser.email}`);
+      
+      return this.generateTokens(user);
+    } catch (error) {
+      console.error('Facebook token verification failed:', error);
+      throw new BadRequestException('Invalid Facebook token');
+    }
+  }
+
+  private generateUsernameFromEmail(email: string): string {
+    const baseUsername = email.split('@')[0].toLowerCase();
+    const randomSuffix = Math.floor(Math.random() * 1000);
+    return `${baseUsername}_${randomSuffix}`;
   }
 
   private async generateTokens(user: User) {

@@ -175,6 +175,84 @@
               "path": ["auth", "profile"]
             }
           }
+        },
+        {
+          "name": "6. Verify Google Token (Mobile)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.access_token) {",
+                  "        pm.collectionVariables.set('authToken', response.access_token);",
+                  "        pm.test('Google token verification successful', function () {",
+                  "            pm.expect(response.access_token).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"your-google-id-token-from-mobile-app\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/verify-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google", "verify-token"]
+            }
+          }
+        },
+        {
+          "name": "7. Verify Facebook Token (Mobile)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.access_token) {",
+                  "        pm.collectionVariables.set('authToken', response.access_token);",
+                  "        pm.test('Facebook token verification successful', function () {",
+                  "            pm.expect(response.access_token).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessToken\": \"your-facebook-access-token-from-mobile-app\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/facebook/verify-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "facebook", "verify-token"]
+            }
+          }
         }
       ]
     },
