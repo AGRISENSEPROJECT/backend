@@ -1,3 +1,4 @@
+import { ApiBearerAuth } from '@nestjs/swagger';
 import {
   Controller,
   Post,
@@ -16,10 +17,11 @@ import {
 } from './dto/create-farm.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@ApiBearerAuth()
 @Controller('farm')
 @UseGuards(JwtAuthGuard)
 export class FarmController {
-  constructor(private farmService: FarmService) {}
+  constructor(private farmService: FarmService) { }
 
   @Post()
   async createFarm(@Req() req: Request, @Body() createFarmDto: CreateFarmDto) {

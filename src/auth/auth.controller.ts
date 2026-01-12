@@ -1,3 +1,4 @@
+import { ApiBearerAuth } from '@nestjs/swagger';
 import {
   Controller,
   Post,
@@ -19,7 +20,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
@@ -80,6 +81,7 @@ export class AuthController {
   }
 
   @Get('profile')
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   async getProfile(@Req() req: Request) {
     return {
