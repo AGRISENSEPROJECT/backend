@@ -6,8 +6,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { FarmModule } from './farm/farm.module';
+import { CommunityModule } from './community/community.module';
 import { User } from './entities/user.entity';
 import { Farm } from './entities/farm.entity';
+import { Post } from './entities/post.entity';
+import { Comment } from './entities/comment.entity';
+import { Like } from './entities/like.entity';
 
 @Module({
   imports: [
@@ -23,7 +27,7 @@ import { Farm } from './entities/farm.entity';
         username: configService.get('DATABASE_USERNAME'),
         password: configService.get('DATABASE_PASSWORD'),
         database: configService.get('DATABASE_NAME'),
-        entities: [User, Farm],
+        entities: [User, Farm, Post, Comment, Like],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
       }),
@@ -48,8 +52,9 @@ import { Farm } from './entities/farm.entity';
     ]),
     AuthModule,
     FarmModule,
+    CommunityModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
