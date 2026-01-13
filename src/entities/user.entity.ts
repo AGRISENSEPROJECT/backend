@@ -5,8 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Farm } from './farm.entity';
+import { Post } from './post.entity';
+import { Comment } from './comment.entity';
+import { Like } from './like.entity';
 
 export enum AuthProvider {
   LOCAL = 'local',
@@ -55,6 +59,15 @@ export class User {
 
   @OneToOne(() => Farm, (farm) => farm.user)
   farm: Farm;
+
+  @OneToMany(() => Post, (post) => post.user)
+  posts: Post[];
+
+  @OneToMany(() => Comment, (comment) => comment.user)
+  comments: Comment[];
+
+  @OneToMany(() => Like, (like) => like.user)
+  likes: Like[];
 
   @CreateDateColumn()
   createdAt: Date;
