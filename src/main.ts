@@ -41,13 +41,38 @@ async function bootstrap() {
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('Agrisense API')
-    .setDescription('The Agrisense API description')
+    .setDescription(
+      'Complete API documentation for Agrisense - Agricultural Management System\n\n' +
+        'Features:\n' +
+        '- Email/Password authentication with OTP verification\n' +
+        '- Google and Facebook OAuth (Web and Mobile)\n' +
+        '- Farm management with multi-step registration\n' +
+        '- Location tracking and owner information\n' +
+        '- JWT-based authentication\n' +
+        '- Rate limiting and security features',
+    )
     .setVersion('1.0')
-    .addTag('agrisense')
-    .addBearerAuth()
+    .addTag('General', 'General endpoints and health checks')
+    .addTag('Authentication', 'User authentication and authorization')
+    .addTag('Farm Management', 'Farm CRUD operations and registration')
+    .addTag('Community', 'Community posts, likes, and comments')
+    .addTag('Testing', 'Testing and debugging endpoints')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter JWT token (without Bearer prefix)',
+      },
+    )
+    .addServer('http://localhost:3000', 'Local Development')
+    .addServer('https://api.agrisense.com', 'Production')
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, document, {
+    customSiteTitle: 'Agrisense API Documentation',
+    customCss: '.swagger-ui .topbar { display: none }',
+  });
 
   await app.listen(process.env.PORT ?? 3000);
   console.log(`Application is running on: ${await app.getUrl()}`);

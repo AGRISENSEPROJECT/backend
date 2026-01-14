@@ -2104,9 +2104,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/swagger@npm:^11.2.4":
-  version: 11.2.4
-  resolution: "@nestjs/swagger@npm:11.2.4"
+"@nestjs/swagger@npm:^11.2.5":
+  version: 11.2.5
+  resolution: "@nestjs/swagger@npm:11.2.5"
   dependencies:
     "@microsoft/tsdoc": "npm:0.16.0"
     "@nestjs/mapped-types": "npm:2.1.0"
@@ -2128,7 +2128,7 @@ __metadata:
       optional: true
     class-validator:
       optional: true
-  checksum: 10c0/26de1021da63fa6900793b48cc3760a3f0e0007f4e73e79ba992370188389d79a335a06bb7ebf9f173c372c80128c77aaae77fa63d53f11ac717dc78cfc6264e
+  checksum: 10c0/661740e37ec6ccfb2c2673b62bff4abc473f5d0e29cc78b6a8430c7e78569cbc797236bcbceabbe6b718eb9e008d29d33b78ab56babd8aa928c85aca2b55e0d4
   languageName: node
   linkType: hard
 
@@ -4037,7 +4037,7 @@ __metadata:
     "@nestjs/platform-express": "npm:^11.0.1"
     "@nestjs/platform-socket.io": "npm:^11.1.11"
     "@nestjs/schematics": "npm:^11.0.0"
-    "@nestjs/swagger": "npm:^11.2.4"
+    "@nestjs/swagger": "npm:^11.2.5"
     "@nestjs/testing": "npm:^11.0.1"
     "@nestjs/throttler": "npm:^6.0.0"
     "@nestjs/typeorm": "npm:^11.0.0"
@@ -4082,7 +4082,7 @@ __metadata:
     ts-loader: "npm:^9.5.2"
     ts-node: "npm:^10.9.2"
     tsconfig-paths: "npm:^4.2.0"
-    typeorm: "npm:^0.3.20"
+    typeorm: "npm:^0.3.28"
     typescript: "npm:^5.7.3"
     typescript-eslint: "npm:^8.20.0"
   languageName: unknown
@@ -9987,7 +9987,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typeorm@npm:^0.3.20":
+"typeorm@npm:^0.3.28":
   version: 0.3.28
   resolution: "typeorm@npm:0.3.28"
   dependencies:

@@ -28,6 +28,12 @@ A scalable NestJS backend for agricultural management with comprehensive authent
   - CORS configuration
   - Environment-based configuration
 
+- 📚 **API Documentation**
+  - Interactive Swagger/OpenAPI documentation
+  - Complete request/response examples
+  - Try-it-out functionality
+  - Authentication testing
+
 ## Quick Start
 
 ### Prerequisites
@@ -62,7 +68,18 @@ yarn start:dev
 
 The API will be available at `http://localhost:3000/api`
 
+**Swagger Documentation**: `http://localhost:3000/api/docs`
+
 ## API Endpoints
+
+### Swagger Documentation
+Access the interactive API documentation at: `http://localhost:3000/api/docs`
+
+The Swagger UI provides:
+- Complete API endpoint documentation
+- Request/response schemas with examples
+- Try-it-out functionality for testing
+- Authentication support (Bearer token)
 
 ### Authentication
 ```
@@ -84,6 +101,14 @@ PUT  /api/farm/location         # Update farm location (protected)
 PUT  /api/farm/owner           # Update owner info (protected)
 GET  /api/farm                 # Get farm details (protected)
 GET  /api/farm/status          # Get registration status (protected)
+```
+
+### Community
+```
+POST /api/community/posts       # Create a new post (protected)
+GET  /api/community/posts       # Get all posts (protected)
+POST /api/community/posts/:id/like    # Like/unlike a post (protected)
+POST /api/community/posts/:id/comment # Comment on a post (protected)
 ```
 
 ### Health Check
