@@ -28,26 +28,20 @@ services:
         fromDatabase:
           name: agrisense-db
           property: password
+      # Redis Configuration (External - e.g. Upstash)
+      # User must provide ONE of:
+      # 1. REDIS_URL (Recommended for Upstash)
+      # 2. REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+      - key: REDIS_URL
+        sync: false
       - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: agrisense-redis
-          property: host
+        sync: false
       - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: agrisense-redis
-          property: port
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
       - key: JWT_SECRET
         generateValue: true
-
-  - type: redis
-    name: agrisense-redis
-    plan: starter
-    region: oregon
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: allow internal render services
 
 databases:
   - name: agrisense-db
