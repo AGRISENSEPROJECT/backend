@@ -7,23 +7,24 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS
-  const rawOrigins =
-    process.env.CORS_ORIGINS ??
-    process.env.FRONTEND_URL ??
-    'http://localhost:3001';
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const rawOrigins = process.env.CORS_ORIGINS ?? process.env.FRONTEND_URL ?? 'http://localhost:3001';
 
   const origins = rawOrigins
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  const allowAllOrigins = origins.length === 0 || origins.includes('*');
+  const allowAllOrigins = origins.length === 0 || origins.includes('*') || isDevelopment;
 
   app.enableCors({
     origin: allowAllOrigins ? true : origins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Authorization'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   // Global validation pipe
@@ -39,6 +40,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Swagger setup
+  const isDev = process.env.NODE_ENV === 'development';
+  
   const config = new DocumentBuilder()
     .setTitle('Agrisense API')
     .setDescription(
@@ -66,12 +69,17 @@ async function bootstrap() {
       },
     )
     .addServer('http://localhost:3000', 'Local Development')
-    .addServer('https://api.agrisense.com', 'Production')
+    .addServer('https://agrisense-backend-pkdg.onrender.com', 'Production (Render)')
     .build();
+    
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     customSiteTitle: 'Agrisense API Documentation',
     customCss: '.swagger-ui .topbar { display: none }',
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
   });
 
   await app.listen(process.env.PORT ?? 3000);
