@@ -8,6 +8,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+
+      # PostgreSQL (Render-managed)
       - key: DATABASE_HOST
         fromDatabase:
           name: agrisense-db
@@ -28,18 +30,11 @@ services:
         fromDatabase:
           name: agrisense-db
           property: password
-      # Redis Configuration (External - e.g. Upstash)
-      # User must provide ONE of:
-      # 1. REDIS_URL (Recommended for Upstash)
-      # 2. REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+
+      # Redis (Upstash – external)
       - key: REDIS_URL
         sync: false
-      - key: REDIS_HOST
-        sync: false
-      - key: REDIS_PORT
-        sync: false
-      - key: REDIS_PASSWORD
-        sync: false
+
       - key: JWT_SECRET
         generateValue: true
 
