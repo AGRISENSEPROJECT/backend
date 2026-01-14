@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: agrisense-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_HOST
+        fromDatabase:
+          name: agrisense-db
+          property: host
+      - key: DATABASE_PORT
+        fromDatabase:
+          name: agrisense-db
+          property: port
+      - key: DATABASE_NAME
+        fromDatabase:
+          name: agrisense-db
+          property: database
+      - key: DATABASE_USERNAME
+        fromDatabase:
+          name: agrisense-db
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: agrisense-db
+          property: password
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: agrisense-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: agrisense-redis
+          property: port
+      - key: JWT_SECRET
+        generateValue: true
+
+  - type: redis
+    name: agrisense-redis
+    plan: starter # Note: Redis on Render is not free. Starts at ~$10/mo.
+    region: oregon
+
+databases:
+  - name: agrisense-db
+    databaseName: agrisense
+    user: agrisense
+    plan: free
+    region: oregon
