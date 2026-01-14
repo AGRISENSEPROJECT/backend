@@ -43,8 +43,11 @@ services:
 
   - type: redis
     name: agrisense-redis
-    plan: starter # Note: Redis on Render is not free. Starts at ~$10/mo.
+    plan: starter
     region: oregon
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow internal render services
 
 databases:
   - name: agrisense-db
