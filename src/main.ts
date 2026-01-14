@@ -7,9 +7,23 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS
+  const rawOrigins =
+    process.env.CORS_ORIGINS ??
+    process.env.FRONTEND_URL ??
+    'http://localhost:3001';
+
+  const origins = rawOrigins
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const allowAllOrigins = origins.length === 0 || origins.includes('*');
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: allowAllOrigins ? true : origins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Global validation pipe
