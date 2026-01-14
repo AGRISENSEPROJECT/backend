@@ -3,7 +3,7 @@ services:
     name: agrisense-backend
     env: node
     plan: free
-    buildCommand: yarn install --frozen-lockfile && yarn build
+    buildCommand: corepack enable && yarn install --immutable && yarn build
     startCommand: yarn start:prod
     envVars:
       - key: NODE_ENV
