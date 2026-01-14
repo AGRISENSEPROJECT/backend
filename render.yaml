@@ -3,8 +3,8 @@ services:
     name: agrisense-backend
     env: node
     plan: free
-    buildCommand: yarn install && yarn run build
-    startCommand: yarn run start:prod
+    buildCommand: yarn install --frozen-lockfile && yarn build
+    startCommand: yarn start:prod
     envVars:
       - key: NODE_ENV
         value: production
