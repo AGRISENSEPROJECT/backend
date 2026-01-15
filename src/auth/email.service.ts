@@ -19,23 +19,35 @@ export class EmailService {
       this.transporter = nodemailer.createTransport({
         host: this.configService.get('SMTP_HOST'),
         port: parseInt(this.configService.get('SMTP_PORT') || '587'),
-        secure: false, // true for 465, false for other ports
+        secure: false, // Use STARTTLS
         auth: {
           user: this.configService.get('SMTP_USER'),
           pass: this.configService.get('SMTP_PASS'),
         },
-        debug: true, // Enable debug output
-        logger: true, // Log to console
+        debug: false,
+        logger: false,
+        // Optimized for Resend and cloud hosting
+        connectionTimeout: 30000, // 30 seconds
+        greetingTimeout: 15000, // 15 seconds
+        socketTimeout: 30000, // 30 seconds
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
       });
       
-      // Test the connection
-      this.transporter.verify((error, success) => {
-        if (error) {
-          console.error('❌ SMTP connection failed:', error);
-        } else {
+      // Test the connection with timeout
+      const testConnection = async () => {
+        try {
+          await this.transporter.verify();
           console.log('✅ SMTP server is ready to take our messages');
+        } catch (error) {
+          console.error('❌ SMTP connection failed:', error.message);
+          console.log('📝 Will continue without email - OTPs will be logged to console');
         }
-      });
+      };
+      
+      // Don't block startup on SMTP connection
+      testConnection();
     } else {
       console.log('⚠️  No SMTP configuration found - emails will only be logged to console');
     }
@@ -56,10 +68,15 @@ export class EmailService {
       console.log('=================================\n');
     }
 
-    // Send email if SMTP is configured
+    // In production, always log OTP to console as fallback
+    if (!isDevelopment) {
+      console.log(`🔑 OTP for ${email}: ${otp}`);
+    }
+
+    // Send email if SMTP is configured and working
     if (hasSmtpConfig && this.transporter) {
       const mailOptions = {
-        from: this.configService.get('SMTP_USER'),
+        from: 'Agrisense <onboarding@resend.dev>', // Use Resend's verified domain
         to: email,
         subject: 'Agrisense - Email Verification',
         html: `
@@ -91,14 +108,16 @@ export class EmailService {
         console.error('❌ Error response:', error.response);
         console.error('❌ Error responseCode:', error.responseCode);
         
-        if (!isDevelopment) {
+        // In production, don't throw error if email fails - just log OTP
+        console.log('📝 Email sending failed, but OTP is logged above for manual verification');
+        
+        // Only throw error in development
+        if (isDevelopment) {
           throw new Error(`Failed to send verification email: ${error.message}`);
         }
-        // In development, don't throw error if email fails
-        console.log('📝 Email sending failed, but continuing in development mode...');
       }
     } else if (!isDevelopment) {
-      throw new Error('SMTP configuration missing');
+      console.log('⚠️  SMTP not configured - OTP logged above for manual verification');
     }
   }
 }
