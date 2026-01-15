@@ -28,7 +28,7 @@ import { Like } from './entities/like.entity';
         password: configService.get('DATABASE_PASSWORD'),
         database: configService.get('DATABASE_NAME'),
         entities: [User, Farm, Post, Comment, Like],
-        synchronize: configService.get('NODE_ENV') === 'development',
+        synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
       }),
       inject: [ConfigService],
