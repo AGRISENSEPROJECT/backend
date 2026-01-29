@@ -119,6 +119,67 @@ export class AuthService {
     return { message: 'Verification code sent to your email' };
   }
 
+  async forgotPassword(email: string) {
+    // Check if user exists
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      throw new BadRequestException('No account found with this email address.');
+    }
+
+    // Only allow password reset for local auth users
+    if (user.provider !== AuthProvider.LOCAL) {
+      throw new BadRequestException(`This account uses ${user.provider} authentication. Please use ${user.provider} to sign in.`);
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store OTP in Redis with 10 minutes expiry
+    await this.redisService.set(`reset:${email}`, otp, 600);
+
+    // Send email
+    await this.emailService.sendPasswordResetEmail(email, otp);
+
+    return { message: 'Password reset code has been sent to your email.' };
+  }
+
+  async verifyResetOtp(email: string, otp: string) {
+    const storedOtp = await this.redisService.get(`reset:${email}`);
+    if (!storedOtp || storedOtp !== otp) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    return { message: 'OTP verified successfully. You can now reset your password.' };
+  }
+
+  async resetPassword(email: string, otp: string, newPassword: string) {
+    // Verify OTP
+    const storedOtp = await this.redisService.get(`reset:${email}`);
+    if (!storedOtp || storedOtp !== otp) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // Find user
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Only allow password reset for local auth users
+    if (user.provider !== AuthProvider.LOCAL) {
+      throw new BadRequestException(`This account uses ${user.provider} authentication.`);
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    // Delete OTP from Redis
+    await this.redisService.del(`reset:${email}`);
+
+    return { message: 'Password reset successfully. You can now login with your new password.' };
+  }
+
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const { email, otp } = verifyOtpDto;
 
