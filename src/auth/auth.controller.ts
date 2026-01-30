@@ -7,13 +7,20 @@ import {
   Req,
   Res,
   HttpStatus,
+  Put,
+  UseInterceptors,
+  UploadedFile,
+  Delete,
+  Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto, VerifyOtpDto } from './dto/login.dto';
 import { ForgotPasswordDto, VerifyResetOtpDto, ResetPasswordDto } from './dto/forgot-password.dto';
+import { UpdateProfileDto, ChangePasswordDto } from './dto/update-profile.dto';
 import { VerifyGoogleTokenDto, VerifyFacebookTokenDto } from './dto/verify-token.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook-auth.guard';
@@ -271,5 +278,92 @@ export class AuthController {
     return {
       user: req.user,
     };
+  }
+
+  @Put('profile')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update user profile' })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async updateProfile(@Req() req: Request, @Body() updateProfileDto: UpdateProfileDto) {
+    const user = req.user as any;
+    return this.authService.updateProfile(user.id, updateProfileDto);
+  }
+
+  @Post('profile/image')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload profile image' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile image uploaded successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async uploadProfileImage(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+    const user = req.user as any;
+    return this.authService.uploadProfileImage(user.id, file);
+  }
+
+  @Delete('profile/image')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Delete profile image' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile image deleted successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async deleteProfileImage(@Req() req: Request) {
+    const user = req.user as any;
+    return this.authService.deleteProfileImage(user.id);
+  }
+
+  @Post('change-password')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Change password' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async changePassword(@Req() req: Request, @Body() changePasswordDto: ChangePasswordDto) {
+    const user = req.user as any;
+    return this.authService.changePassword(user.id, changePasswordDto);
+  }
+
+  @Post('logout')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Logout and blacklist token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logged out successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async logout(@Headers('authorization') authorization: string) {
+    return this.authService.logout(authorization);
   }
 }

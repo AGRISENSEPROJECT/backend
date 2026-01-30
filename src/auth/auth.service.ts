@@ -11,8 +11,10 @@ import * as bcrypt from 'bcryptjs';
 import { User, AuthProvider } from '../entities/user.entity';
 import { RegisterDto, SocialRegisterDto } from './dto/register.dto';
 import { LoginDto, VerifyOtpDto } from './dto/login.dto';
+import { UpdateProfileDto, ChangePasswordDto } from './dto/update-profile.dto';
 import { EmailService } from './email.service';
 import { RedisService } from './redis.service';
+import { CloudinaryService } from './cloudinary.service';
 import { TokenVerificationService } from './token-verification.service';
 import { VerifyGoogleTokenDto, VerifyFacebookTokenDto } from './dto/verify-token.dto';
 
@@ -24,6 +26,7 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private redisService: RedisService,
+    private cloudinaryService: CloudinaryService,
     private tokenVerificationService: TokenVerificationService,
   ) {}
 
@@ -335,8 +338,140 @@ export class AuthService {
         email: user.email,
         username: user.username,
         isEmailVerified: user.isEmailVerified,
+        profileImage: user.profileImage,
+        bio: user.bio,
+        phoneNumber: user.phoneNumber,
         hasFarm: !!user.farm,
       },
     };
+  }
+
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Check if username is already taken
+    if (updateProfileDto.username && updateProfileDto.username !== user.username) {
+      const existingUser = await this.userRepository.findOne({
+        where: { username: updateProfileDto.username },
+      });
+      if (existingUser) {
+        throw new ConflictException('Username already taken');
+      }
+    }
+
+    // Update fields
+    if (updateProfileDto.username) user.username = updateProfileDto.username;
+    if (updateProfileDto.bio !== undefined) user.bio = updateProfileDto.bio;
+    if (updateProfileDto.phoneNumber !== undefined) user.phoneNumber = updateProfileDto.phoneNumber;
+
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        bio: user.bio,
+        phoneNumber: user.phoneNumber,
+        profileImage: user.profileImage,
+      },
+    };
+  }
+
+  async uploadProfileImage(userId: string, file: Express.Multer.File) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Delete old image if exists
+    if (user.profileImage) {
+      await this.cloudinaryService.deleteImage(user.profileImage);
+    }
+
+    // Upload new image
+    const imageUrl = await this.cloudinaryService.uploadImage(file);
+    user.profileImage = imageUrl;
+    await this.userRepository.save(user);
+
+    return {
+      message: 'Profile image uploaded successfully',
+      profileImage: imageUrl,
+    };
+  }
+
+  async deleteProfileImage(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (!user.profileImage) {
+      throw new BadRequestException('No profile image to delete');
+    }
+
+    // Delete from Cloudinary
+    await this.cloudinaryService.deleteImage(user.profileImage);
+    user.profileImage = null;
+    await this.userRepository.save(user);
+
+    return { message: 'Profile image deleted successfully' };
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Check if user uses local auth
+    if (user.provider !== AuthProvider.LOCAL || !user.password) {
+      throw new BadRequestException(`This account uses ${user.provider} authentication and cannot change password.`);
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(changePasswordDto.currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    // Hash and save new password
+    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 12);
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    return { message: 'Password changed successfully' };
+  }
+
+  async logout(token: string) {
+    // Extract token without 'Bearer ' prefix
+    const cleanToken = token.replace('Bearer ', '');
+    
+    // Decode token to get expiry
+    const decoded = this.jwtService.decode(cleanToken) as any;
+    if (!decoded || !decoded.exp) {
+      throw new BadRequestException('Invalid token');
+    }
+
+    // Calculate TTL (time until token expires)
+    const now = Math.floor(Date.now() / 1000);
+    const ttl = decoded.exp - now;
+
+    if (ttl > 0) {
+      // Blacklist token in Redis until it expires
+      await this.redisService.set(`blacklist:${cleanToken}`, 'true', ttl);
+    }
+
+    return { message: 'Logged out successfully' };
+  }
+
+  async isTokenBlacklisted(token: string): Promise<boolean> {
+    const cleanToken = token.replace('Bearer ', '');
+    const isBlacklisted = await this.redisService.exists(`blacklist:${cleanToken}`);
+    return isBlacklisted;
   }
 }
