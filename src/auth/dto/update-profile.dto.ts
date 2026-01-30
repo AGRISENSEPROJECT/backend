@@ -14,16 +14,6 @@ export class UpdateProfileDto {
   username?: string;
 
   @ApiProperty({
-    example: 'Passionate farmer from Rwanda',
-    description: 'User bio',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  bio?: string;
-
-  @ApiProperty({
     example: '+250788123456',
     description: 'Phone number',
     required: false,
