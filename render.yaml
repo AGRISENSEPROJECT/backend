@@ -3,7 +3,7 @@ services:
     name: agrisense-backend
     env: node
     plan: free
-    buildCommand: corepack enable && yarn install --immutable && yarn build
+    buildCommand: corepack enable && yarn install --immutable && yarn build && node scripts/run-migration.js
     startCommand: yarn start:prod
     envVars:
       - key: NODE_ENV

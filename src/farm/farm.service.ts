@@ -2,16 +2,13 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Farm } from '../entities/farm.entity';
 import { User } from '../entities/user.entity';
-import {
-  CreateFarmDto,
-  UpdateFarmLocationDto,
-  UpdateFarmOwnerDto,
-} from './dto/create-farm.dto';
+import { CreateFarmDto, UpdateFarmDto } from './dto/create-farm.dto';
 
 @Injectable()
 export class FarmService {
@@ -23,15 +20,6 @@ export class FarmService {
   ) {}
 
   async createFarm(userId: string, createFarmDto: CreateFarmDto) {
-    // Check if user already has a farm
-    const existingFarm = await this.farmRepository.findOne({
-      where: { userId },
-    });
-
-    if (existingFarm) {
-      throw new BadRequestException('User already has a farm');
-    }
-
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -44,70 +32,31 @@ export class FarmService {
       ...createFarmDto,
       userId,
       user,
-      // Set default values for required fields
-      country: '',
-      district: '',
-      ownerName: '',
-      ownerPhone: '',
-      ownerEmail: user.email,
     });
 
     await this.farmRepository.save(farm);
 
     return {
       message: 'Farm created successfully',
-      farm: {
-        id: farm.id,
-        name: farm.name,
-        size: farm.size,
-        soilType: farm.soilType,
-      },
-    };
-  }
-
-  async updateFarmLocation(
-    userId: string,
-    updateLocationDto: UpdateFarmLocationDto,
-  ) {
-    const farm = await this.farmRepository.findOne({
-      where: { userId },
-    });
-
-    if (!farm) {
-      throw new NotFoundException('Farm not found');
-    }
-
-    Object.assign(farm, updateLocationDto);
-    await this.farmRepository.save(farm);
-
-    return {
-      message: 'Farm location updated successfully',
       farm,
     };
   }
 
-  async updateFarmOwner(userId: string, updateOwnerDto: UpdateFarmOwnerDto) {
-    const farm = await this.farmRepository.findOne({
+  async getAllFarms(userId: string) {
+    const farms = await this.farmRepository.find({
       where: { userId },
+      order: { createdAt: 'DESC' },
     });
 
-    if (!farm) {
-      throw new NotFoundException('Farm not found');
-    }
-
-    Object.assign(farm, updateOwnerDto);
-    await this.farmRepository.save(farm);
-
     return {
-      message: 'Farm owner information updated successfully',
-      farm,
+      count: farms.length,
+      farms,
     };
   }
 
-  async getFarm(userId: string) {
+  async getFarm(userId: string, farmId: string) {
     const farm = await this.farmRepository.findOne({
-      where: { userId },
-      relations: ['user'],
+      where: { id: farmId, userId },
     });
 
     if (!farm) {
@@ -117,29 +66,37 @@ export class FarmService {
     return farm;
   }
 
-  async getFarmRegistrationStatus(userId: string) {
+  async updateFarm(userId: string, farmId: string, updateFarmDto: UpdateFarmDto) {
     const farm = await this.farmRepository.findOne({
-      where: { userId },
+      where: { id: farmId, userId },
     });
 
     if (!farm) {
-      return {
-        hasFarm: false,
-        hasLocation: false,
-        hasOwnerInfo: false,
-        isComplete: false,
-      };
+      throw new NotFoundException('Farm not found');
     }
 
-    const hasLocation = !!(farm.country && farm.district);
-    const hasOwnerInfo = !!(farm.ownerName && farm.ownerPhone && farm.ownerEmail);
+    Object.assign(farm, updateFarmDto);
+    await this.farmRepository.save(farm);
 
     return {
-      hasFarm: true,
-      hasLocation,
-      hasOwnerInfo,
-      isComplete: hasLocation && hasOwnerInfo,
+      message: 'Farm updated successfully',
       farm,
+    };
+  }
+
+  async deleteFarm(userId: string, farmId: string) {
+    const farm = await this.farmRepository.findOne({
+      where: { id: farmId, userId },
+    });
+
+    if (!farm) {
+      throw new NotFoundException('Farm not found');
+    }
+
+    await this.farmRepository.remove(farm);
+
+    return {
+      message: 'Farm deleted successfully',
     };
   }
 }

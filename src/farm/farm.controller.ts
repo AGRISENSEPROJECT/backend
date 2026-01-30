@@ -3,30 +3,27 @@ import {
   Post,
   Put,
   Get,
+  Delete,
   Body,
   UseGuards,
   Req,
+  Param,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
 import { FarmService } from './farm.service';
-import {
-  CreateFarmDto,
-  UpdateFarmLocationDto,
-  UpdateFarmOwnerDto,
-} from './dto/create-farm.dto';
+import { CreateFarmDto, UpdateFarmDto } from './dto/create-farm.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiBearerAuth()
 @ApiTags('Farm Management')
-@Controller('farm')
+@Controller('farms')
 @UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class FarmController {
-  constructor(private farmService: FarmService) { }
+  constructor(private farmService: FarmService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new farm' })
+  @ApiOperation({ summary: 'Create a new farm with complete information' })
   @ApiBody({ type: CreateFarmDto })
   @ApiResponse({
     status: 201,
@@ -39,11 +36,19 @@ export class FarmController {
           name: 'Green Valley Farm',
           size: 25.5,
           soilType: 'loamy',
+          country: 'Rwanda',
+          district: 'Gasabo',
+          sector: 'Remera',
+          cell: 'Rukiri I',
+          village: 'Amahoro',
+          ownerName: 'John Doe',
+          ownerPhone: '+250788123456',
+          ownerEmail: 'owner@example.com',
+          createdAt: '2023-01-01T00:00:00.000Z',
         },
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'User already has a farm' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createFarm(@Req() req: Request, @Body() createFarmDto: CreateFarmDto) {
     const userId = (req.user as any)?.id;
@@ -53,71 +58,55 @@ export class FarmController {
     return this.farmService.createFarm(userId, createFarmDto);
   }
 
-  @Put('location')
-  @ApiOperation({ summary: 'Update farm location information' })
-  @ApiBody({ type: UpdateFarmLocationDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Farm location updated successfully',
-    schema: {
-      example: {
-        message: 'Farm location updated successfully',
-        farm: {
-          id: 'uuid-string',
-          country: 'Kenya',
-          district: 'Nakuru',
-          latitude: -0.3031,
-          longitude: 36.0800,
-        },
-      },
-    },
-  })
-  @ApiResponse({ status: 404, description: 'Farm not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateLocation(
-    @Req() req: Request,
-    @Body() updateLocationDto: UpdateFarmLocationDto,
-  ) {
-    const userId = (req.user as any)?.id;
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
-    return this.farmService.updateFarmLocation(userId, updateLocationDto);
-  }
-
-  @Put('owner')
-  @ApiOperation({ summary: 'Update farm owner information' })
-  @ApiBody({ type: UpdateFarmOwnerDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Farm owner information updated successfully',
-    schema: {
-      example: {
-        message: 'Farm owner information updated successfully',
-        farm: {
-          id: 'uuid-string',
-          ownerName: 'John Doe',
-          ownerPhone: '+254712345678',
-          ownerEmail: 'owner@example.com',
-        },
-      },
-    },
-  })
-  @ApiResponse({ status: 404, description: 'Farm not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateOwner(
-    @Req() req: Request,
-    @Body() updateOwnerDto: UpdateFarmOwnerDto,
-  ) {
-    const userId = (req.user as any)?.id;
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
-    return this.farmService.updateFarmOwner(userId, updateOwnerDto);
-  }
-
   @Get()
-  @ApiOperation({ summary: 'Get farm details' })
+  @ApiOperation({ summary: 'Get all farms owned by the user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Farms retrieved successfully',
+    schema: {
+      example: {
+        count: 2,
+        farms: [
+          {
+            id: 'uuid-string-1',
+            name: 'Green Valley Farm',
+            size: 25.5,
+            soilType: 'loamy',
+            country: 'Rwanda',
+            district: 'Gasabo',
+            sector: 'Remera',
+            cell: 'Rukiri I',
+            village: 'Amahoro',
+            createdAt: '2023-01-01T00:00:00.000Z',
+          },
+          {
+            id: 'uuid-string-2',
+            name: 'Sunset Farm',
+            size: 15.0,
+            soilType: 'clay',
+            country: 'Rwanda',
+            district: 'Kicukiro',
+            sector: 'Niboye',
+            cell: 'Nyanza',
+            village: 'Karama',
+            createdAt: '2023-01-02T00:00:00.000Z',
+          },
+        ],
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getAllFarms(@Req() req: Request) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    return this.farmService.getAllFarms(userId);
+  }
+
+  @Get(':farmId')
+  @ApiOperation({ summary: 'Get a specific farm by ID' })
+  @ApiParam({ name: 'farmId', description: 'Farm ID' })
   @ApiResponse({
     status: 200,
     description: 'Farm details retrieved successfully',
@@ -127,12 +116,13 @@ export class FarmController {
         name: 'Green Valley Farm',
         size: 25.5,
         soilType: 'loamy',
-        country: 'Kenya',
-        district: 'Nakuru',
-        latitude: -0.3031,
-        longitude: 36.0800,
+        country: 'Rwanda',
+        district: 'Gasabo',
+        sector: 'Remera',
+        cell: 'Rukiri I',
+        village: 'Amahoro',
         ownerName: 'John Doe',
-        ownerPhone: '+254712345678',
+        ownerPhone: '+250788123456',
         ownerEmail: 'owner@example.com',
         createdAt: '2023-01-01T00:00:00.000Z',
         updatedAt: '2023-01-01T00:00:00.000Z',
@@ -141,40 +131,71 @@ export class FarmController {
   })
   @ApiResponse({ status: 404, description: 'Farm not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getFarm(@Req() req: Request) {
+  async getFarm(@Req() req: Request, @Param('farmId') farmId: string) {
     const userId = (req.user as any)?.id;
     if (!userId) {
       throw new Error('User not authenticated');
     }
-    return this.farmService.getFarm(userId);
+    return this.farmService.getFarm(userId, farmId);
   }
 
-  @Get('status')
-  @ApiOperation({ summary: 'Get farm registration status' })
+  @Put(':farmId')
+  @ApiOperation({ summary: 'Update farm information' })
+  @ApiParam({ name: 'farmId', description: 'Farm ID' })
+  @ApiBody({ type: UpdateFarmDto })
   @ApiResponse({
     status: 200,
-    description: 'Farm registration status retrieved successfully',
+    description: 'Farm updated successfully',
     schema: {
       example: {
-        hasFarm: true,
-        hasLocation: true,
-        hasOwnerInfo: true,
-        isComplete: true,
+        message: 'Farm updated successfully',
         farm: {
           id: 'uuid-string',
-          name: 'Green Valley Farm',
-          size: 25.5,
+          name: 'Updated Farm Name',
+          size: 30.0,
           soilType: 'loamy',
+          country: 'Rwanda',
+          district: 'Gasabo',
+          sector: 'Remera',
+          cell: 'Rukiri I',
+          village: 'Amahoro',
         },
       },
     },
   })
+  @ApiResponse({ status: 404, description: 'Farm not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getRegistrationStatus(@Req() req: Request) {
+  async updateFarm(
+    @Req() req: Request,
+    @Param('farmId') farmId: string,
+    @Body() updateFarmDto: UpdateFarmDto,
+  ) {
     const userId = (req.user as any)?.id;
     if (!userId) {
       throw new Error('User not authenticated');
     }
-    return this.farmService.getFarmRegistrationStatus(userId);
+    return this.farmService.updateFarm(userId, farmId, updateFarmDto);
+  }
+
+  @Delete(':farmId')
+  @ApiOperation({ summary: 'Delete a farm' })
+  @ApiParam({ name: 'farmId', description: 'Farm ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Farm deleted successfully',
+    schema: {
+      example: {
+        message: 'Farm deleted successfully',
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Farm not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async deleteFarm(@Req() req: Request, @Param('farmId') farmId: string) {
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    return this.farmService.deleteFarm(userId, farmId);
   }
 }

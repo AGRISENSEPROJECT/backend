@@ -21,13 +21,31 @@ export class EmailService {
   }
 
   async sendVerificationEmail(email: string, otp: string) {
+    return this.sendEmail(email, otp, 'verification');
+  }
+
+  async sendPasswordResetEmail(email: string, otp: string) {
+    return this.sendEmail(email, otp, 'reset');
+  }
+
+  private async sendEmail(email: string, otp: string, type: 'verification' | 'reset') {
     const isDevelopment = this.configService.get('NODE_ENV') === 'development';
     const senderEmail = 'nzizaprince7@gmail.com';
+
+    const isVerification = type === 'verification';
+    const subject = isVerification ? 'Agrisense - Email Verification' : 'Agrisense - Password Reset';
+    const title = isVerification ? 'Welcome to Agrisense!' : 'Reset Your Password';
+    const message = isVerification 
+      ? 'Thank you for registering with Agrisense. Please use the following verification code to complete your registration:'
+      : 'You requested to reset your password. Please use the following code to reset your password:';
+    const disclaimer = isVerification
+      ? "If you didn't create an account with Agrisense, please ignore this email."
+      : "If you didn't request a password reset, please ignore this email and your password will remain unchanged.";
 
     // Always log OTP for debugging
     if (isDevelopment) {
       console.log('\n=================================');
-      console.log('📧 EMAIL VERIFICATION');
+      console.log(`📧 ${isVerification ? 'EMAIL VERIFICATION' : 'PASSWORD RESET'}`);
       console.log('=================================');
       console.log(`📨 To: ${email}`);
       console.log(`🔑 OTP: ${otp}`);
@@ -39,13 +57,13 @@ export class EmailService {
 
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2e7d32;">Welcome to Agrisense!</h2>
-        <p>Thank you for registering with Agrisense. Please use the following verification code to complete your registration:</p>
+        <h2 style="color: #2e7d32;">${title}</h2>
+        <p>${message}</p>
         <div style="background-color: #f5f5f5; padding: 20px; text-align: center; margin: 20px 0;">
           <h1 style="color: #2e7d32; font-size: 32px; margin: 0;">${otp}</h1>
         </div>
         <p>This code will expire in 10 minutes.</p>
-        <p>If you didn't create an account with Agrisense, please ignore this email.</p>
+        <p>${disclaimer}</p>
         <hr style="margin: 30px 0;">
         <p style="color: #666; font-size: 12px;">
           This is an automated message from Agrisense. Please do not reply to this email.
@@ -56,13 +74,13 @@ export class EmailService {
     // Send via Brevo HTTP API
     if (this.brevoApi) {
       try {
-        console.log(`📤 Sending email via Brevo HTTP API to: ${email}`);
+        console.log(`📤 Sending ${type} email via Brevo HTTP API to: ${email}`);
         console.log(`📧 From: ${senderEmail}`);
         
         const sendSmtpEmail = new brevo.SendSmtpEmail();
         sendSmtpEmail.to = [{ email: email }];
         sendSmtpEmail.sender = { email: senderEmail, name: 'Agrisense' };
-        sendSmtpEmail.subject = 'Agrisense - Email Verification';
+        sendSmtpEmail.subject = subject;
         sendSmtpEmail.htmlContent = emailHtml;
         
         const response = await this.brevoApi.sendTransacEmail(sendSmtpEmail);
