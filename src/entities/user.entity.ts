@@ -32,6 +32,15 @@ export class User {
   @Column({ nullable: true })
   password: string;
 
+  @Column({ nullable: true, type: 'varchar', default: null })
+  profileImage: string | null;
+
+  @Column({ nullable: true, type: 'varchar', default: null })
+  bio: string | null;
+
+  @Column({ nullable: true, type: 'varchar', default: null })
+  phoneNumber: string | null;
+
   @Column({
     type: 'enum',
     enum: AuthProvider,
