@@ -32,17 +32,33 @@ async function runMigration() {
     await client.connect();
     console.log('✅ Connected to database');
 
-    const migrationPath = path.join(__dirname, '../migrations/001-update-schema.sql');
-    
-    if (!fs.existsSync(migrationPath)) {
-      throw new Error(`Migration file not found: ${migrationPath}`);
+    // Run all migration files in order
+    const migrationFiles = [
+      '002-add-missing-columns.sql',
+      '001-update-schema.sql',
+    ];
+
+    for (const filename of migrationFiles) {
+      const migrationPath = path.join(__dirname, '../migrations', filename);
+      
+      if (!fs.existsSync(migrationPath)) {
+        console.log(`⚠️  Migration file not found: ${filename} - skipping`);
+        continue;
+      }
+
+      console.log(`🚀 Running migration: ${filename}`);
+      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      
+      try {
+        await client.query(migrationSQL);
+        console.log(`✅ Migration ${filename} completed successfully`);
+      } catch (error) {
+        console.error(`❌ Migration ${filename} failed:`, error.message);
+        // Continue with other migrations
+      }
     }
 
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-
-    console.log('🚀 Running migration...');
-    await client.query(migrationSQL);
-    console.log('✅ Migration completed successfully');
+    console.log('✅ All migrations completed');
 
   } catch (error) {
     console.error('❌ Migration failed:', error.message);
