@@ -4,7 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToOne,
+  ManyToOne,
   JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
@@ -39,24 +39,30 @@ export class Farm {
   country: string;
 
   @Column()
+  province: string;
+
+  @Column()
   district: string;
 
-  @Column('decimal', { precision: 10, scale: 8, nullable: true })
-  latitude: number;
+  @Column()
+  sector: string;
 
-  @Column('decimal', { precision: 11, scale: 8, nullable: true })
-  longitude: number;
+  @Column()
+  cell: string;
+
+  @Column()
+  village: string;
 
   @Column()
   ownerName: string;
 
-  @Column()
+  @Column({ nullable: true })
   ownerPhone: string;
 
   @Column()
   ownerEmail: string;
 
-  @OneToOne(() => User, (user) => user.farm)
+  @ManyToOne(() => User, (user) => user.farms, { onDelete: 'CASCADE' })
   @JoinColumn()
   user: User;
 

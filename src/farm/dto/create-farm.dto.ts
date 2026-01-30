@@ -24,43 +24,49 @@ export class CreateFarmDto {
   })
   @IsEnum(SoilType)
   soilType: SoilType;
-}
 
-export class UpdateFarmLocationDto {
   @ApiProperty({
     description: 'Country where the farm is located',
-    example: 'Kenya',
+    example: 'Rwanda',
   })
   @IsString()
   country: string;
 
   @ApiProperty({
+    description: 'Province where the farm is located',
+    example: 'Kigali City',
+  })
+  @IsString()
+  province: string;
+
+  @ApiProperty({
     description: 'District where the farm is located',
-    example: 'Nakuru',
+    example: 'Gasabo',
   })
   @IsString()
   district: string;
 
   @ApiProperty({
-    description: 'Farm latitude coordinates',
-    example: -0.3031,
-    required: false,
+    description: 'Sector where the farm is located',
+    example: 'Remera',
   })
-  @IsOptional()
-  @IsNumber()
-  latitude?: number;
+  @IsString()
+  sector: string;
 
   @ApiProperty({
-    description: 'Farm longitude coordinates',
-    example: 36.0800,
-    required: false,
+    description: 'Cell where the farm is located',
+    example: 'Rukiri I',
   })
-  @IsOptional()
-  @IsNumber()
-  longitude?: number;
-}
+  @IsString()
+  cell: string;
 
-export class UpdateFarmOwnerDto {
+  @ApiProperty({
+    description: 'Village where the farm is located',
+    example: 'Amahoro',
+  })
+  @IsString()
+  village: string;
+
   @ApiProperty({
     description: 'Farm owner full name',
     example: 'John Doe',
@@ -70,10 +76,12 @@ export class UpdateFarmOwnerDto {
 
   @ApiProperty({
     description: 'Farm owner phone number',
-    example: '+254712345678',
+    example: '+250788123456',
+    required: false,
   })
+  @IsOptional()
   @IsString()
-  ownerPhone: string;
+  ownerPhone?: string;
 
   @ApiProperty({
     description: 'Farm owner email address',
@@ -81,4 +89,115 @@ export class UpdateFarmOwnerDto {
   })
   @IsEmail()
   ownerEmail: string;
+}
+
+export class UpdateFarmDto {
+  @ApiProperty({
+    description: 'Farm name',
+    example: 'Green Valley Farm',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({
+    description: 'Farm size in acres',
+    example: 25.5,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  size?: number;
+
+  @ApiProperty({
+    description: 'Type of soil',
+    example: 'loamy',
+    enum: SoilType,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(SoilType)
+  soilType?: SoilType;
+
+  @ApiProperty({
+    description: 'Country where the farm is located',
+    example: 'Rwanda',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiProperty({
+    description: 'Province where the farm is located',
+    example: 'Kigali City',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  province?: string;
+
+  @ApiProperty({
+    description: 'District where the farm is located',
+    example: 'Gasabo',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @ApiProperty({
+    description: 'Sector where the farm is located',
+    example: 'Remera',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  sector?: string;
+
+  @ApiProperty({
+    description: 'Cell where the farm is located',
+    example: 'Rukiri I',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  cell?: string;
+
+  @ApiProperty({
+    description: 'Village where the farm is located',
+    example: 'Amahoro',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  village?: string;
+
+  @ApiProperty({
+    description: 'Farm owner full name',
+    example: 'John Doe',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  ownerName?: string;
+
+  @ApiProperty({
+    description: 'Farm owner phone number',
+    example: '+250788123456',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  ownerPhone?: string;
+
+  @ApiProperty({
+    description: 'Farm owner email address',
+    example: 'owner@example.com',
+    required: false,
+  })
+  @IsOptional()
+  @IsEmail()
+  ownerEmail?: string;
 }
