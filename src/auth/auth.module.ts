@@ -8,6 +8,7 @@ import { TestEmailController } from './test-email.controller';
 import { AuthService } from './auth.service';
 import { EmailService } from './email.service';
 import { RedisService } from './redis.service';
+import { CloudinaryService } from './cloudinary.service';
 import { TokenVerificationService } from './token-verification.service';
 import { User } from '../entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -34,6 +35,7 @@ import { FacebookStrategy } from './strategies/facebook.strategy';
     AuthService,
     EmailService,
     RedisService,
+    CloudinaryService,
     TokenVerificationService,
     JwtStrategy,
     GoogleStrategy,

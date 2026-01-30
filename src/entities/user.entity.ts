@@ -32,6 +32,12 @@ export class User {
   @Column({ nullable: true })
   password: string;
 
+  @Column({ nullable: true, type: 'varchar', default: null })
+  profileImage: string | null;
+
+  @Column({ nullable: true, type: 'varchar', default: null })
+  phoneNumber: string | null;
+
   @Column({
     type: 'enum',
     enum: AuthProvider,
@@ -57,8 +63,8 @@ export class User {
   @Column({ nullable: true })
   resetPasswordExpires: Date;
 
-  @OneToOne(() => Farm, (farm) => farm.user)
-  farm: Farm;
+  @OneToMany(() => Farm, (farm) => farm.user)
+  farms: Farm[];
 
   @OneToMany(() => Post, (post) => post.user)
   posts: Post[];

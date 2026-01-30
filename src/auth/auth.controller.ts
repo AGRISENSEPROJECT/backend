@@ -7,12 +7,22 @@ import {
   Req,
   Res,
   HttpStatus,
+  Put,
+  UseInterceptors,
+  UploadedFile,
+  Delete,
+  Headers,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto, VerifyOtpDto } from './dto/login.dto';
+import { ForgotPasswordDto, VerifyResetOtpDto, ResetPasswordDto } from './dto/forgot-password.dto';
+import { UpdateProfileDto, ChangePasswordDto } from './dto/update-profile.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { VerifyGoogleTokenDto, VerifyFacebookTokenDto } from './dto/verify-token.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook-auth.guard';
@@ -50,12 +60,14 @@ export class AuthController {
     schema: {
       example: {
         access_token: 'jwt-token-string',
+        refresh_token: 'refresh-token-string',
+        expires_in: '15m',
         user: {
           id: 'uuid-string',
           email: 'user@example.com',
           username: 'username',
           isEmailVerified: true,
-          hasFarm: false,
+          farmsCount: 2,
         },
       },
     },
@@ -112,6 +124,60 @@ export class AuthController {
   })
   async resendOtp(@Body() body: { email: string }) {
     return this.authService.sendEmailVerification(body.email);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset OTP' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset OTP sent if account exists',
+    schema: {
+      example: {
+        message: 'If an account exists with this email, a password reset code has been sent.',
+      },
+    },
+  })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('verify-reset-otp')
+  @ApiOperation({ summary: 'Verify password reset OTP' })
+  @ApiBody({ type: VerifyResetOtpDto })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP verified successfully',
+    schema: {
+      example: {
+        message: 'OTP verified successfully. You can now reset your password.',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  async verifyResetOtp(@Body() verifyResetOtpDto: VerifyResetOtpDto) {
+    return this.authService.verifyResetOtp(verifyResetOtpDto.email, verifyResetOtpDto.otp);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with OTP' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+    schema: {
+      example: {
+        message: 'Password reset successfully. You can now login with your new password.',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.email,
+      resetPasswordDto.otp,
+      resetPasswordDto.newPassword,
+    );
   }
 
   @Get('google')
@@ -216,5 +282,135 @@ export class AuthController {
     return {
       user: req.user,
     };
+  }
+
+  @Put('profile')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update user profile' })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async updateProfile(@Req() req: Request, @Body() updateProfileDto: UpdateProfileDto) {
+    const user = req.user as any;
+    return this.authService.updateProfile(user.id, updateProfileDto);
+  }
+
+  @Post('profile/image')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload profile image' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file (JPEG, PNG, WebP - max 5MB)',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile image uploaded successfully',
+    schema: {
+      example: {
+        message: 'Profile image uploaded successfully',
+        profileImage: 'https://res.cloudinary.com/...',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file or file too large' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async uploadProfileImage(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded. Please select an image file.');
+    }
+    const user = req.user as any;
+    return this.authService.uploadProfileImage(user.id, file);
+  }
+
+  @Delete('profile/image')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Delete profile image' })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile image deleted successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async deleteProfileImage(@Req() req: Request) {
+    const user = req.user as any;
+    return this.authService.deleteProfileImage(user.id);
+  }
+
+  @Post('change-password')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Change password' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async changePassword(@Req() req: Request, @Body() changePasswordDto: ChangePasswordDto) {
+    const user = req.user as any;
+    return this.authService.changePassword(user.id, changePasswordDto);
+  }
+
+  @Post('logout')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Logout and blacklist token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        refreshToken: {
+          type: 'string',
+          description: 'Refresh token to revoke (optional)',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logged out successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async logout(
+    @Headers('authorization') authorization: string,
+    @Req() req: Request,
+    @Body() body?: { refreshToken?: string },
+  ) {
+    const user = req.user as any;
+    return this.authService.logout(authorization, user.id, body?.refreshToken);
+  }
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({
+    status: 200,
+    description: 'New access token generated successfully',
+    schema: {
+      example: {
+        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        expires_in: '15m',
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshAccessToken(refreshTokenDto.refreshToken);
   }
 }
