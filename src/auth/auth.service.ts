@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { User, AuthProvider } from '../entities/user.entity';
 import { RegisterDto, SocialRegisterDto } from './dto/register.dto';
@@ -24,6 +25,7 @@ export class AuthService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
+    private configService: ConfigService,
     private emailService: EmailService,
     private redisService: RedisService,
     private cloudinaryService: CloudinaryService,
@@ -103,8 +105,15 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // If email not verified, send OTP and return special response
     if (!user.isEmailVerified) {
-      throw new UnauthorizedException('Please verify your email first');
+      await this.sendEmailVerification(email);
+      return {
+        isEmailVerified: false,
+        message: 'Email not verified. A new verification code has been sent to your email.',
+        userId: user.id,
+        email: user.email,
+      };
     }
 
     return this.generateTokens(user);
@@ -216,7 +225,7 @@ export class AuthService {
   async validateUser(payload: any): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
-      relations: ['farm'],
+      relations: ['farms'],
     });
     
     if (!user) {
@@ -238,7 +247,7 @@ export class AuthService {
           { email: googleUser.email },
           { providerId: googleUser.sub, provider: AuthProvider.GOOGLE }
         ],
-        relations: ['farm'],
+        relations: ['farms'],
       });
 
       if (user) {
@@ -288,7 +297,7 @@ export class AuthService {
           { email: facebookUser.email },
           { providerId: facebookUser.id, provider: AuthProvider.FACEBOOK }
         ],
-        relations: ['farm'],
+        relations: ['farms'],
       });
 
       if (user) {
@@ -331,19 +340,84 @@ export class AuthService {
   private async generateTokens(user: User) {
     const payload = { email: user.email, sub: user.id, username: user.username };
     
+    // Generate access token (short-lived)
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.configService.get('JWT_SECRET'),
+      expiresIn: this.configService.get('JWT_EXPIRES_IN') || '15m',
+    });
+
+    // Generate refresh token (long-lived)
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get('JWT_REFRESH_SECRET'),
+      expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
+    });
+
+    // Store refresh token in Redis with expiry
+    const refreshTokenExpiry = 7 * 24 * 60 * 60; // 7 days in seconds
+    await this.redisService.set(`refresh:${user.id}:${refreshToken}`, 'valid', refreshTokenExpiry);
+    
+    // Count farms
+    const farmsCount = user.farms ? user.farms.length : 0;
+    
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: this.configService.get('JWT_EXPIRES_IN') || '15m',
       user: {
         id: user.id,
         email: user.email,
         username: user.username,
         isEmailVerified: user.isEmailVerified,
         profileImage: user.profileImage,
-        bio: user.bio,
         phoneNumber: user.phoneNumber,
-        hasFarm: !!user.farm,
+        farmsCount,
       },
     };
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      // Verify refresh token
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
+      });
+
+      // Check if refresh token exists in Redis (not revoked)
+      const isValid = await this.redisService.exists(`refresh:${payload.sub}:${refreshToken}`);
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid or expired refresh token');
+      }
+
+      // Get user
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
+        relations: ['farms'],
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      // Generate new access token
+      const newPayload = { email: user.email, sub: user.id, username: user.username };
+      const accessToken = this.jwtService.sign(newPayload, {
+        secret: this.configService.get('JWT_SECRET'),
+        expiresIn: this.configService.get('JWT_EXPIRES_IN') || '15m',
+      });
+
+      return {
+        access_token: accessToken,
+        expires_in: this.configService.get('JWT_EXPIRES_IN') || '15m',
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
+  async revokeRefreshToken(userId: string, refreshToken: string) {
+    // Remove refresh token from Redis
+    await this.redisService.del(`refresh:${userId}:${refreshToken}`);
+    return { message: 'Refresh token revoked successfully' };
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
@@ -364,7 +438,6 @@ export class AuthService {
 
     // Update fields
     if (updateProfileDto.username) user.username = updateProfileDto.username;
-    if (updateProfileDto.bio !== undefined) user.bio = updateProfileDto.bio;
     if (updateProfileDto.phoneNumber !== undefined) user.phoneNumber = updateProfileDto.phoneNumber;
 
     await this.userRepository.save(user);
@@ -375,7 +448,6 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
-        bio: user.bio,
         phoneNumber: user.phoneNumber,
         profileImage: user.profileImage,
       },
@@ -447,7 +519,7 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  async logout(token: string) {
+  async logout(token: string, userId: string, refreshToken?: string) {
     // Extract token without 'Bearer ' prefix
     const cleanToken = token.replace('Bearer ', '');
     
@@ -462,8 +534,13 @@ export class AuthService {
     const ttl = decoded.exp - now;
 
     if (ttl > 0) {
-      // Blacklist token in Redis until it expires
+      // Blacklist access token in Redis until it expires
       await this.redisService.set(`blacklist:${cleanToken}`, 'true', ttl);
+    }
+
+    // Revoke refresh token if provided
+    if (refreshToken) {
+      await this.revokeRefreshToken(userId, refreshToken);
     }
 
     return { message: 'Logged out successfully' };
