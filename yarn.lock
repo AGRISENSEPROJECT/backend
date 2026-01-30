@@ -2112,9 +2112,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/platform-express@npm:^11.0.1":
-  version: 11.1.11
-  resolution: "@nestjs/platform-express@npm:11.1.11"
+"@nestjs/platform-express@npm:^11.1.12":
+  version: 11.1.12
+  resolution: "@nestjs/platform-express@npm:11.1.12"
   dependencies:
     cors: "npm:2.8.5"
     express: "npm:5.2.1"
@@ -2124,7 +2124,7 @@ __metadata:
   peerDependencies:
     "@nestjs/common": ^11.0.0
     "@nestjs/core": ^11.0.0
-  checksum: 10c0/c693abf735511d8cead8681212e96eecefa50500d487f7ac1e892cf2b4c8ff1e37d0b1745b10cf7571881e72a38228df2646aafed7a676a04d731c03ba809a5f
+  checksum: 10c0/bd658d8225119140d059a80c10c296515845008d7a4d009b5489838f03dbbec06097054cc73cb13902ee3c8c357629b84ada663a61b8f821dbd5ccec9b5d7156
   languageName: node
   linkType: hard
 
@@ -3400,6 +3400,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/multer@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "@types/multer@npm:2.0.0"
+  dependencies:
+    "@types/express": "npm:*"
+  checksum: 10c0/375b0e77c4675c2ff27d1170e469df48dced928cc9fcd077ead111a20d0f2c01921fd25e20e25426604d6d3e311b37da2bc03ce47523d06adafba5c4b8077b67
+  languageName: node
+  linkType: hard
+
 "@types/node@npm:*, @types/node@npm:>=10.0.0":
   version: 25.0.8
   resolution: "@types/node@npm:25.0.8"
@@ -4102,7 +4111,7 @@ __metadata:
     "@nestjs/core": "npm:^11.0.1"
     "@nestjs/jwt": "npm:^11.0.0"
     "@nestjs/passport": "npm:^11.0.0"
-    "@nestjs/platform-express": "npm:^11.0.1"
+    "@nestjs/platform-express": "npm:^11.1.12"
     "@nestjs/platform-socket.io": "npm:^11.1.11"
     "@nestjs/schematics": "npm:^11.0.0"
     "@nestjs/swagger": "npm:^11.2.5"
@@ -4115,6 +4124,7 @@ __metadata:
     "@types/bcryptjs": "npm:^2.4.6"
     "@types/express": "npm:^5.0.0"
     "@types/jest": "npm:^29.5.14"
+    "@types/multer": "npm:^2.0.0"
     "@types/node": "npm:^22.10.7"
     "@types/nodemailer": "npm:^6.4.14"
     "@types/passport-facebook": "npm:^3.0.3"
@@ -4126,12 +4136,14 @@ __metadata:
     bcryptjs: "npm:^2.4.3"
     class-transformer: "npm:^0.5.1"
     class-validator: "npm:^0.14.1"
+    cloudinary: "npm:^2.9.0"
     eslint: "npm:^9.18.0"
     eslint-config-prettier: "npm:^10.0.1"
     eslint-plugin-prettier: "npm:^5.2.2"
     globals: "npm:^16.0.0"
     google-auth-library: "npm:^10.5.0"
     jest: "npm:^29.7.0"
+    multer: "npm:^2.0.2"
     nodemailer: "npm:^6.9.9"
     passport: "npm:^0.7.0"
     passport-facebook: "npm:^3.0.0"
@@ -4975,6 +4987,15 @@ __metadata:
   version: 1.0.4
   resolution: "clone@npm:1.0.4"
   checksum: 10c0/2176952b3649293473999a95d7bebfc9dc96410f6cbd3d2595cf12fd401f63a4bf41a7adbfd3ab2ff09ed60cb9870c58c6acdd18b87767366fabfc163700f13b
+  languageName: node
+  linkType: hard
+
+"cloudinary@npm:^2.9.0":
+  version: 2.9.0
+  resolution: "cloudinary@npm:2.9.0"
+  dependencies:
+    lodash: "npm:^4.17.21"
+  checksum: 10c0/263e843b3ca6446ece4312dc2b84892aaeab35847b0fdbd0e80086ce2485a755f647e02ef60e4ebcf4e700f223d91efb8afcc1f7ee5bc41f8973f3bb34fe573f
   languageName: node
   linkType: hard
 
@@ -8209,7 +8230,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"multer@npm:2.0.2":
+"multer@npm:2.0.2, multer@npm:^2.0.2":
   version: 2.0.2
   resolution: "multer@npm:2.0.2"
   dependencies:
