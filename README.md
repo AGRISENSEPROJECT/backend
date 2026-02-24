@@ -111,6 +111,12 @@ POST /api/community/posts/:id/like    # Like/unlike a post (protected)
 POST /api/community/posts/:id/comment # Comment on a post (protected)
 ```
 
+### Predictions
+```
+POST /api/predictions/run        # Run AI prediction + store scan/history (protected)
+GET  /api/predictions/dashboard  # Get latest composition, trends, suggestions (protected)
+```
+
 ### Health Check
 ```
 GET  /api/health               # Health check endpoint
@@ -165,6 +171,11 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 FACEBOOK_APP_ID=your-facebook-app-id
 FACEBOOK_APP_SECRET=your-facebook-app-secret
+
+# Model API
+MODEL_API_URL=https://agrisense-api.onrender.com
+MODEL_PREDICT_PATH=/predict
+MODEL_API_TIMEOUT_MS=30000
 ```
 
 ## Development Commands
