@@ -34,6 +34,7 @@ async function runMigration() {
       '002-add-missing-columns.sql',
       '001-update-schema.sql',
       '003-add-province.sql',
+      '004-add-predictions-schema.sql',
     ];
 
     for (const filename of migrationFiles) {

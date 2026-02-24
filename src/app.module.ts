@@ -12,6 +12,10 @@ import { Farm } from './entities/farm.entity';
 import { Post } from './entities/post.entity';
 import { Comment } from './entities/comment.entity';
 import { Like } from './entities/like.entity';
+import { SoilScan } from './entities/soil-scan.entity';
+import { PredictionRun } from './entities/prediction-run.entity';
+import { Recommendation } from './entities/recommendation.entity';
+import { PredictionModule } from './prediction/prediction.module';
 
 @Module({
   imports: [
@@ -27,7 +31,7 @@ import { Like } from './entities/like.entity';
         username: configService.get('DATABASE_USERNAME'),
         password: configService.get('DATABASE_PASSWORD'),
         database: configService.get('DATABASE_NAME'),
-        entities: [User, Farm, Post, Comment, Like],
+        entities: [User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation],
         synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
       }),
@@ -53,6 +57,7 @@ import { Like } from './entities/like.entity';
     AuthModule,
     FarmModule,
     CommunityModule,
+    PredictionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
