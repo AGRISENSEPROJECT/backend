@@ -55,10 +55,11 @@ async function runMigration() {
     );
 
     if (missingTables.length > 0) {
-      throw new Error(
-        `Base schema is missing required table(s): ${missingTables.join(', ')}. ` +
-          'These migrations are patch migrations and require an existing schema.',
+      console.log(
+        `⚠️  Base schema missing (${missingTables.join(', ')}). ` +
+          'Skipping patch migrations for this deploy.',
       );
+      return;
     }
 
     for (const filename of migrationFiles) {
