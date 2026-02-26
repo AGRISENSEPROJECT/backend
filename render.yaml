@@ -8,6 +8,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: TYPEORM_SYNCHRONIZE
+        value: "true"
 
       # PostgreSQL (external, e.g. Neon)
       - key: DATABASE_URL
