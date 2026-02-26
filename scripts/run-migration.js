@@ -5,23 +5,25 @@ require('dotenv').config();
 
 async function runMigration() {
   let client;
+  const shouldUseSsl =
+    process.env.DATABASE_SSL === 'true' || process.env.NODE_ENV === 'production';
+  const sslConfig = shouldUseSsl ? { rejectUnauthorized: false } : undefined;
 
   if (process.env.DATABASE_URL) {
     console.log('📡 Using DATABASE_URL for connection');
     client = new Client({
       connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false
-      }
+      ...(sslConfig ? { ssl: sslConfig } : {}),
     });
   } else {
-    console.log('🏠 Using local database configuration');
+    console.log('🧩 Using DATABASE_* configuration');
     client = new Client({
       host: process.env.DATABASE_HOST || 'localhost',
       port: parseInt(process.env.DATABASE_PORT || '5432'),
       user: process.env.DATABASE_USERNAME || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres123',
       database: process.env.DATABASE_NAME || 'agrisense',
+      ...(sslConfig ? { ssl: sslConfig } : {}),
     });
   }
 

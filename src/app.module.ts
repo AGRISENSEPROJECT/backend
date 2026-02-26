@@ -24,17 +24,29 @@ import { PredictionModule } from './prediction/prediction.module';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DATABASE_HOST'),
-        port: configService.get('DATABASE_PORT'),
-        username: configService.get('DATABASE_USERNAME'),
-        password: configService.get('DATABASE_PASSWORD'),
-        database: configService.get('DATABASE_NAME'),
-        entities: [User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation],
-        synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || configService.get('NODE_ENV') === 'development',
-        logging: configService.get('NODE_ENV') === 'development',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const isDevelopment = configService.get('NODE_ENV') === 'development';
+        const useSsl = configService.get('DATABASE_SSL') === 'true' || !!databaseUrl;
+        const databasePort = Number(configService.get<string>('DATABASE_PORT') || 5432);
+
+        return {
+          type: 'postgres',
+          ...(databaseUrl
+            ? { url: databaseUrl }
+            : {
+                host: configService.get<string>('DATABASE_HOST'),
+                port: databasePort,
+                username: configService.get<string>('DATABASE_USERNAME'),
+                password: configService.get<string>('DATABASE_PASSWORD'),
+                database: configService.get<string>('DATABASE_NAME'),
+              }),
+          ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+          entities: [User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation],
+          synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
+          logging: isDevelopment,
+        };
+      },
       inject: [ConfigService],
     }),
     ThrottlerModule.forRoot([
