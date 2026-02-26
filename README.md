@@ -146,6 +146,11 @@ POST /api/test/email           # Test email sending functionality
 
 ```env
 # Database
+# Preferred for production/external DBs (Neon, Render, Supabase, etc.)
+DATABASE_URL=postgresql://user:password@host:5432/database?sslmode=require
+DATABASE_SSL=true
+
+# Local database fallback (used when DATABASE_URL is not set)
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USERNAME=postgres

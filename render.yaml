@@ -9,27 +9,11 @@ services:
       - key: NODE_ENV
         value: production
 
-      # PostgreSQL (Render-managed)
-      - key: DATABASE_HOST
-        fromDatabase:
-          name: agrisense-db
-          property: host
-      - key: DATABASE_PORT
-        fromDatabase:
-          name: agrisense-db
-          property: port
-      - key: DATABASE_NAME
-        fromDatabase:
-          name: agrisense-db
-          property: database
-      - key: DATABASE_USERNAME
-        fromDatabase:
-          name: agrisense-db
-          property: user
-      - key: DATABASE_PASSWORD
-        fromDatabase:
-          name: agrisense-db
-          property: password
+      # PostgreSQL (external, e.g. Neon)
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "true"
 
       # Redis (Upstash – external)
       - key: REDIS_URL
@@ -37,10 +21,3 @@ services:
 
       - key: JWT_SECRET
         generateValue: true
-
-databases:
-  - name: agrisense-db
-    databaseName: agrisense
-    user: agrisense
-    plan: free
-    region: oregon
