@@ -32,42 +32,48 @@ async function runMigration() {
     await client.connect();
     console.log('✅ Connected to database');
 
-    const migrationFiles = [
-      '002-add-missing-columns.sql',
-      '001-update-schema.sql',
-      '003-add-province.sql',
-      '004-add-predictions-schema.sql',
-    ];
+    const migrationDir = path.join(__dirname, '../migrations');
+    const migrationFiles = fs
+      .readdirSync(migrationDir)
+      .filter((filename) => filename.endsWith('.sql'))
+      .filter((filename) => !filename.toLowerCase().includes('rollback'))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+    if (migrationFiles.length === 0) {
+      console.log('ℹ️  No migration files found.');
+      return;
+    }
+
+    const requiredTables = ['users', 'farms'];
+    const requiredTableResults = await Promise.all(
+      requiredTables.map((table) =>
+        client.query('SELECT to_regclass($1) AS exists', [`public.${table}`]),
+      ),
+    );
+    const missingTables = requiredTables.filter(
+      (_, index) => !requiredTableResults[index].rows[0].exists,
+    );
+
+    if (missingTables.length > 0) {
+      throw new Error(
+        `Base schema is missing required table(s): ${missingTables.join(', ')}. ` +
+          'These migrations are patch migrations and require an existing schema.',
+      );
+    }
 
     for (const filename of migrationFiles) {
-      const migrationPath = path.join(__dirname, '../migrations', filename);
-      
-      if (!fs.existsSync(migrationPath)) {
-        console.log(`⚠️  Migration file not found: ${filename} - skipping`);
-        continue;
-      }
+      const migrationPath = path.join(migrationDir, filename);
 
       console.log(`🚀 Running migration: ${filename}`);
       const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-      
-      try {
-        await client.query(migrationSQL);
-        console.log(`✅ Migration ${filename} completed successfully`);
-      } catch (error) {
-        console.error(`❌ Migration ${filename} failed:`, error.message);
-      }
+      await client.query(migrationSQL);
+      console.log(`✅ Migration ${filename} completed successfully`);
     }
 
     console.log('✅ All migrations completed');
-
   } catch (error) {
     console.error('❌ Migration failed:', error.message);
-    
-    if (process.env.NODE_ENV === 'production') {
-      console.log('⚠️  Continuing despite migration error (production mode)');
-    } else {
-      process.exit(1);
-    }
+    process.exit(1);
   } finally {
     if (client) {
       await client.end();
