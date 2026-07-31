@@ -2,6 +2,8 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Body,
   Query,
@@ -24,6 +26,10 @@ import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreatePredictionDto } from './dto/create-prediction.dto';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
+import {
+  PredictionHistoryQueryDto,
+  RecommendationQueryDto,
+} from './dto/history-query.dto';
 import { PredictionService } from './prediction.service';
 
 @ApiBearerAuth()
@@ -72,5 +78,51 @@ export class PredictionController {
     }
 
     return this.predictionService.getDashboard(userId, query);
+  }
+
+  @Get('recommendations')
+  @ApiOperation({
+    summary: 'List past recommendations (filterable by farm and type, paginated)',
+  })
+  @ApiResponse({ status: 200, description: 'Recommendations fetched successfully' })
+  @ApiResponse({ status: 404, description: 'Farm not found' })
+  async getRecommendations(
+    @Req() req: Request,
+    @Query() query: RecommendationQueryDto,
+  ) {
+    const userId = (req.user as { id: string } | undefined)?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    return this.predictionService.getRecommendationHistory(userId, query);
+  }
+
+  @Get('runs')
+  @ApiOperation({
+    summary: 'List past prediction runs with their recommendations (paginated)',
+  })
+  @ApiResponse({ status: 200, description: 'Prediction runs fetched successfully' })
+  @ApiResponse({ status: 404, description: 'Farm not found' })
+  async getRuns(@Req() req: Request, @Query() query: PredictionHistoryQueryDto) {
+    const userId = (req.user as { id: string } | undefined)?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    return this.predictionService.getPredictionHistory(userId, query);
+  }
+
+  @Get('runs/:id')
+  @ApiOperation({ summary: 'Get a single prediction run with its recommendations' })
+  @ApiResponse({ status: 200, description: 'Prediction run fetched successfully' })
+  @ApiResponse({ status: 404, description: 'Prediction run not found' })
+  async getRun(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    const userId = (req.user as { id: string } | undefined)?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    return this.predictionService.getPredictionRun(userId, id);
   }
 }

@@ -59,6 +59,7 @@ async function bootstrap() {
     .addTag('Authentication', 'User authentication and authorization')
     .addTag('Farm Management', 'Farm CRUD operations and registration')
     .addTag('Community', 'Community posts, likes, and comments')
+    .addTag('Predictions', 'Model predictions, recommendations, and history')
     .addTag('Testing', 'Testing and debugging endpoints')
     .addBearerAuth(
       {

@@ -14,6 +14,8 @@ export enum RecommendationType {
   CROP = 'crop',
   FERTILIZER = 'fertilizer',
   IRRIGATION = 'irrigation',
+  DISEASE = 'disease',
+  WEATHER = 'weather',
   GENERAL = 'general',
 }
 
