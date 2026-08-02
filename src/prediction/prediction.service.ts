@@ -15,16 +15,31 @@ import {
 import { SoilScan, SoilScanSource } from '../entities/soil-scan.entity';
 import { CreatePredictionDto } from './dto/create-prediction.dto';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
+import {
+  PredictionHistoryQueryDto,
+  RecommendationQueryDto,
+} from './dto/history-query.dto';
 
 type PlainObject = Record<string, unknown>;
 type ModelPayload = {
   temperature: number;
   humidity: number;
   rainfall: number;
-  cropType: string;
+  cropType: string | null;
   nitrogen: number;
   phosphorus: number;
   potassium: number;
+  soilMoisture: number | null;
+  lat: number | null;
+  lon: number | null;
+};
+
+type ExtractedRecommendation = {
+  type: RecommendationType;
+  title: string;
+  payload: PlainObject;
+  rank: number;
+  isPrimary: boolean;
 };
 
 @Injectable()
@@ -109,6 +124,11 @@ export class PredictionService {
       predictionRun.rawResponse = this.toPlainObject(modelResponse);
       predictionRun.errorMessage = null;
       await this.predictionRunRepository.save(predictionRun);
+
+      if (summary.soilTexture != null && soilScan.soilType == null) {
+        soilScan.soilType = String(summary.soilTexture);
+        await this.soilScanRepository.save(soilScan);
+      }
 
       if (recommendations.length > 0) {
         const recommendationEntities = recommendations.map((recommendation) =>
@@ -218,15 +238,82 @@ export class PredictionService {
     };
   }
 
+  async getRecommendationHistory(userId: string, query: RecommendationQueryDto) {
+    await this.assertFarmOwnership(userId, query.farmId);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const [items, total] = await this.recommendationRepository.findAndCount({
+      where: {
+        userId,
+        ...(query.farmId ? { farmId: query.farmId } : {}),
+        ...(query.type ? { type: query.type } : {}),
+      },
+      order: { createdAt: 'DESC', rank: 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { items, total, page, limit };
+  }
+
+  async getPredictionHistory(userId: string, query: PredictionHistoryQueryDto) {
+    await this.assertFarmOwnership(userId, query.farmId);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const [items, total] = await this.predictionRunRepository.findAndCount({
+      where: {
+        userId,
+        ...(query.farmId ? { farmId: query.farmId } : {}),
+      },
+      relations: { recommendations: true, soilScan: true },
+      order: { executedAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { items, total, page, limit };
+  }
+
+  async getPredictionRun(userId: string, id: string) {
+    const run = await this.predictionRunRepository.findOne({
+      where: { id, userId },
+      relations: { recommendations: true, soilScan: true },
+    });
+
+    if (!run) {
+      throw new NotFoundException('Prediction run not found');
+    }
+
+    run.recommendations.sort((a, b) => a.rank - b.rank);
+    return run;
+  }
+
+  private async assertFarmOwnership(userId: string, farmId?: string) {
+    if (!farmId) {
+      return;
+    }
+    const farm = await this.farmRepository.findOne({ where: { id: farmId, userId } });
+    if (!farm) {
+      throw new NotFoundException('Farm not found');
+    }
+  }
+
   private buildModelPayload(dto: CreatePredictionDto, soilScan: SoilScan): PlainObject {
     return {
       temperature: Number(soilScan.temperature),
       humidity: Number(soilScan.moisture),
       rainfall: Number(dto.rainfall),
-      cropType: dto.crop_type,
+      cropType: dto.crop_type ?? null,
       nitrogen: Number(soilScan.nitrogen),
       phosphorus: Number(soilScan.phosphorus),
       potassium: Number(soilScan.potassium),
+      soilMoisture: dto.soil_moisture ?? null,
+      lat: dto.lat ?? null,
+      lon: dto.lon ?? null,
     };
   }
 
@@ -253,10 +340,21 @@ export class PredictionService {
     formData.append('temperature', String(modelPayload.temperature));
     formData.append('humidity', String(modelPayload.humidity));
     formData.append('rainfall', String(modelPayload.rainfall));
-    formData.append('crop_type', modelPayload.cropType);
     formData.append('nitrogen', String(modelPayload.nitrogen));
     formData.append('phosphorus', String(modelPayload.phosphorus));
     formData.append('potassium', String(modelPayload.potassium));
+    if (modelPayload.cropType != null) {
+      formData.append('crop_type', modelPayload.cropType);
+    }
+    if (modelPayload.soilMoisture != null) {
+      formData.append('soil_moisture', String(modelPayload.soilMoisture));
+    }
+    if (modelPayload.lat != null) {
+      formData.append('lat', String(modelPayload.lat));
+    }
+    if (modelPayload.lon != null) {
+      formData.append('lon', String(modelPayload.lon));
+    }
 
     const response = await fetch(url, {
       method: 'POST',
@@ -285,122 +383,168 @@ export class PredictionService {
 
   private extractSummary(rawResponse: unknown): PlainObject {
     const response = this.toPlainObject(rawResponse);
+    const soilAnalysis = this.toPlainObject(response.soil_analysis);
+    const cropBlock = this.findCategoryBlock(response, 'crop');
+
+    // Grouped /predict shape: crop block carries best_crop + confidence.
+    if (cropBlock) {
+      const fertilizerBlock = this.findCategoryBlock(response, 'fertilizer');
+      return {
+        bestCrop: cropBlock.best_crop ?? null,
+        confidence: cropBlock.confidence ?? null,
+        soilTexture: soilAnalysis.texture ?? null,
+        soilMoisture: soilAnalysis.moisture ?? null,
+        fertilizer: fertilizerBlock
+          ? (this.toPlainObject(fertilizerBlock.data).recommended_fertilizer ?? null)
+          : null,
+        timestamp: response.timestamp ?? null,
+      };
+    }
+
+    // Flat /comprehensive-analyze shape.
     const cropRecommendations = Array.isArray(response.crop_recommendations)
       ? response.crop_recommendations
       : [];
     const primaryCrop = this.toPlainObject(cropRecommendations[0]);
+    const fertilizer = this.toPlainObject(response.fertilizer_recommendation);
 
     return {
       bestCrop: primaryCrop.crop ?? null,
-      soilTexture: response.soil_texture ?? null,
-      fertilizer:
-        response.fertilizer_recommendation ??
-        response.fertilizerRecommendation ??
-        response.fertilizer ??
-        null,
       confidence: primaryCrop.suitability_score ?? null,
+      soilTexture: soilAnalysis.texture ?? response.soil_texture ?? null,
+      soilMoisture: soilAnalysis.moisture ?? null,
+      fertilizer: fertilizer.recommended_fertilizer ?? response.fertilizer ?? null,
+      timestamp: response.timestamp ?? null,
     };
   }
 
-  private extractRecommendations(
-    rawResponse: unknown,
-  ): Array<{
-    type: RecommendationType;
-    title: string;
-    payload: PlainObject;
-    rank: number;
-    isPrimary: boolean;
-  }> {
+  private extractRecommendations(rawResponse: unknown): ExtractedRecommendation[] {
     const response = this.toPlainObject(rawResponse);
-    const recommendations: Array<{
-      type: RecommendationType;
-      title: string;
-      payload: PlainObject;
-      rank: number;
-      isPrimary: boolean;
-    }> = [];
+    const recommendations: ExtractedRecommendation[] = [];
 
     const append = (
       type: RecommendationType,
       title: string,
       payload: unknown,
-      rank: number,
       isPrimary = false,
     ) => {
       recommendations.push({
         type,
         title,
         payload: this.toPlainObject(payload),
-        rank,
+        rank: recommendations.length,
         isPrimary,
       });
     };
 
-    const list = Array.isArray(response.crop_recommendations)
-      ? response.crop_recommendations
-      : Array.isArray(response.recommendations)
-        ? response.recommendations
-        : [];
+    const groupedBlocks = Array.isArray(response.recommendations)
+      ? response.recommendations
+          .map((block) => this.toPlainObject(block))
+          .filter((block) => typeof block.category === 'string')
+      : [];
 
-    if (list.length > 0) {
-      list.forEach((item, index) => {
+    if (groupedBlocks.length > 0) {
+      // Grouped /predict shape: one block per category.
+      for (const block of groupedBlocks) {
+        const category = String(block.category).toLowerCase();
+
+        if (category.includes('crop')) {
+          const crops = Array.isArray(block.data) ? block.data : [];
+          const bestCrop = block.best_crop ?? null;
+          crops.forEach((item, index) => {
+            const plain = this.toPlainObject(item);
+            const isBest =
+              bestCrop != null ? plain.crop === bestCrop : index === 0;
+            append(
+              RecommendationType.CROP,
+              String(plain.crop ?? `Crop Recommendation ${index + 1}`),
+              { ...plain, ...(isBest ? { confidence: block.confidence ?? null } : {}) },
+              isBest,
+            );
+          });
+          if (crops.length === 0 && bestCrop != null) {
+            append(
+              RecommendationType.CROP,
+              String(bestCrop),
+              { crop: bestCrop, confidence: block.confidence ?? null },
+              true,
+            );
+          }
+        } else if (category.includes('irrigation')) {
+          append(RecommendationType.IRRIGATION, 'Irrigation Recommendation', block.data);
+        } else if (category.includes('fertilizer')) {
+          append(RecommendationType.FERTILIZER, 'Fertilizer Recommendation', block.data);
+        } else if (category.includes('disease')) {
+          append(RecommendationType.DISEASE, 'Disease Analysis', block.data);
+        } else if (category.includes('weather')) {
+          append(RecommendationType.WEATHER, 'Weather Forecast', block.data);
+        } else {
+          append(RecommendationType.GENERAL, String(block.category), block.data);
+        }
+      }
+    } else {
+      // Flat /comprehensive-analyze shape.
+      const crops = Array.isArray(response.crop_recommendations)
+        ? response.crop_recommendations
+        : [];
+      crops.forEach((item, index) => {
         const plain = this.toPlainObject(item);
         append(
           RecommendationType.CROP,
-          String(plain.crop ?? plain.title ?? `Crop Recommendation ${index + 1}`),
+          String(plain.crop ?? `Crop Recommendation ${index + 1}`),
           plain,
-          Number(plain.rank ?? index),
-          Boolean(plain.isPrimary ?? index === 0),
+          index === 0,
         );
       });
+
+      if (response.irrigation_recommendation) {
+        append(
+          RecommendationType.IRRIGATION,
+          'Irrigation Recommendation',
+          response.irrigation_recommendation,
+        );
+      }
+      if (response.fertilizer_recommendation) {
+        append(
+          RecommendationType.FERTILIZER,
+          'Fertilizer Recommendation',
+          response.fertilizer_recommendation,
+        );
+      }
+      if (response.disease_analysis) {
+        append(RecommendationType.DISEASE, 'Disease Analysis', response.disease_analysis);
+      }
+      if (response.weather_forecast) {
+        append(RecommendationType.WEATHER, 'Weather Forecast', response.weather_forecast);
+      }
     }
 
-    if (response.fertilizer_recommendation || response.fertilizerRecommendation) {
-      const fertilizerPayload = this.toPlainObject(
-        response.fertilizer_recommendation ?? response.fertilizerRecommendation,
-      );
-      append(
-        RecommendationType.FERTILIZER,
-        'Fertilizer Recommendation',
-        fertilizerPayload,
-        recommendations.length,
-        recommendations.length === 0,
-      );
-    }
-
-    if (response.cropRecommendation || response.bestCrop || response.best_crop) {
-      append(
-        RecommendationType.CROP,
-        'Crop Recommendation',
-        {
-          cropRecommendation:
-            response.cropRecommendation ?? response.bestCrop ?? response.best_crop,
-          alternatives: response.alternativeCrops ?? response.alternatives ?? null,
-          growthScore: response.growthScore ?? null,
-          bestPlantingSeason: response.bestPlantingSeason ?? null,
-          soilSuitability: response.soilSuitability ?? null,
-        },
-        0,
-        true,
-      );
-    }
-
-    if (response.soil_texture) {
-      append(
-        RecommendationType.GENERAL,
-        'Soil Texture',
-        {
-          soilTexture: response.soil_texture,
-        },
-        recommendations.length,
-      );
+    const soilAnalysis = this.toPlainObject(response.soil_analysis);
+    if (Object.keys(soilAnalysis).length > 0) {
+      append(RecommendationType.GENERAL, 'Soil Analysis', soilAnalysis);
     }
 
     if (recommendations.length === 0) {
-      append(RecommendationType.GENERAL, 'General Recommendation', response, 0, true);
+      append(RecommendationType.GENERAL, 'General Recommendation', response, true);
     }
 
     return recommendations;
+  }
+
+  private findCategoryBlock(response: PlainObject, keyword: string): PlainObject | null {
+    if (!Array.isArray(response.recommendations)) {
+      return null;
+    }
+    for (const block of response.recommendations) {
+      const plain = this.toPlainObject(block);
+      if (
+        typeof plain.category === 'string' &&
+        plain.category.toLowerCase().includes(keyword)
+      ) {
+        return plain;
+      }
+    }
+    return null;
   }
 
   private groupRecommendationsByType(recommendations: Recommendation[]) {

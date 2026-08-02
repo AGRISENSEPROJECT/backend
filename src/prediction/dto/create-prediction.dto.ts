@@ -78,10 +78,34 @@ export class CreatePredictionDto {
   @IsNumber()
   rainfall: number;
 
-  @ApiProperty({ description: 'Target crop type', example: 'Tomatoes' })
+  @ApiPropertyOptional({
+    description: 'Target crop type (rice, Irish Potatoes, Tomatoes)',
+    example: 'Tomatoes',
+  })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  crop_type: string;
+  crop_type?: string;
+
+  @ApiPropertyOptional({
+    description: 'Soil moisture percentage (model defaults to 50 when omitted)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  soil_moisture?: number;
+
+  @ApiPropertyOptional({ description: 'Farm latitude, forwarded to the model' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lat?: number;
+
+  @ApiPropertyOptional({ description: 'Farm longitude, forwarded to the model' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  lon?: number;
 
   @ApiProperty({ description: 'Nitrogen content (mg/kg)' })
   @Type(() => Number)
