@@ -69,7 +69,9 @@ async function bootstrap() {
         description: 'Enter JWT token (without Bearer prefix)',
       },
     )
-    .addServer('http://localhost:3000', 'Local Development')
+    .addServer('/', 'Current host (use this)')
+    .addServer('http://localhost:3001', 'Local Development')
+    .addServer('http://102.202.208.198', 'VPS Production')
     .addServer('https://agrisense-backend-pkdg.onrender.com', 'Production (Render)')
     .build();
     
