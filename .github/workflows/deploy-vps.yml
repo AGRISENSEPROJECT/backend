@@ -1,0 +1,74 @@
+name: Deploy API to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-vps
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${VPS_PORT:-222}" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync backend source to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          rsync -az --delete \
+            --exclude node_modules \
+            --exclude dist \
+            --exclude .git \
+            --exclude coverage \
+            --exclude uploads \
+            --exclude temp \
+            --exclude '*.log' \
+            --exclude .env \
+            --exclude .env.* \
+            -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-222} -o StrictHostKeyChecking=yes" \
+            ./ "${VPS_USER}@${VPS_HOST}:/opt/agrisense/backend/"
+
+      - name: Rebuild and restart API
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-222}" \
+            "${VPS_USER}@${VPS_HOST}" \
+            'cd /opt/agrisense/deploy && docker compose up -d --build api'
+
+      - name: Health check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "http://${VPS_HOST}/api/health" >/dev/null; then
+              curl -fsS "http://${VPS_HOST}/api/health"
+              echo
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "API health check failed"
+          exit 1
