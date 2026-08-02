@@ -71,8 +71,8 @@ async function bootstrap() {
     )
     .addServer('/', 'Current host (use this)')
     .addServer('http://localhost:3001', 'Local Development')
-    .addServer('http://102.202.208.198', 'VPS Production')
-    .addServer('https://agrisense-backend-pkdg.onrender.com', 'Production (Render)')
+    .addServer('https://agrisense.rw', 'Production')
+    .addServer('http://102.202.208.198', 'VPS (IP fallback)')
     .build();
     
   const document = SwaggerModule.createDocument(app, config);
