@@ -15,6 +15,9 @@ import { Like } from './entities/like.entity';
 import { SoilScan } from './entities/soil-scan.entity';
 import { PredictionRun } from './entities/prediction-run.entity';
 import { Recommendation } from './entities/recommendation.entity';
+import { Conversation } from './entities/conversation.entity';
+import { ConversationMember } from './entities/conversation-member.entity';
+import { Message } from './entities/message.entity';
 import { PredictionModule } from './prediction/prediction.module';
 
 @Module({
@@ -42,7 +45,19 @@ import { PredictionModule } from './prediction/prediction.module';
                 database: configService.get<string>('DATABASE_NAME'),
               }),
           ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
-          entities: [User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation],
+          entities: [
+            User,
+            Farm,
+            Post,
+            Comment,
+            Like,
+            SoilScan,
+            PredictionRun,
+            Recommendation,
+            Conversation,
+            ConversationMember,
+            Message,
+          ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
         };
