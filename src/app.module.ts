@@ -17,6 +17,12 @@ import { CartModule } from './cart/cart.module';
 import { OrganizationModule } from './organization/organization.module';
 import { ProgramModule } from './program/program.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { WeatherModule } from './weather/weather.module';
+import { IoTModule } from './iot/iot.module';
+import { YieldModule } from './yield/yield.module';
+import { CooperativeModule } from './cooperative/cooperative.module';
+import { AuditModule } from './audit/audit.module';
+import { JobsModule } from './jobs/jobs.module';
 import { User } from './entities/user.entity';
 import { Farm } from './entities/farm.entity';
 import { Post } from './entities/post.entity';
@@ -35,6 +41,14 @@ import { Payment } from './entities/payment.entity';
 import { Organization } from './entities/organization.entity';
 import { Program } from './entities/program.entity';
 import { ProgramFarmer } from './entities/program-farmer.entity';
+import { WeatherAlert } from './entities/weather-alert.entity';
+import { IoTSensor } from './entities/iot-sensor.entity';
+import { SensorReading } from './entities/sensor-reading.entity';
+import { YieldForecast } from './entities/yield-forecast.entity';
+import { Cooperative } from './entities/cooperative.entity';
+import { CooperativeMember } from './entities/cooperative-member.entity';
+import { PostReport } from './entities/post-report.entity';
+import { AuditLog } from './entities/audit-log.entity';
 import { PredictionModule } from './prediction/prediction.module';
 
 @Module({
@@ -81,6 +95,14 @@ import { PredictionModule } from './prediction/prediction.module';
             Organization,
             Program,
             ProgramFarmer,
+            WeatherAlert,
+            IoTSensor,
+            SensorReading,
+            YieldForecast,
+            Cooperative,
+            CooperativeMember,
+            PostReport,
+            AuditLog,
           ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
@@ -105,6 +127,7 @@ import { PredictionModule } from './prediction/prediction.module';
         limit: 100,
       },
     ]),
+    JobsModule,
     AuthModule,
     FarmModule,
     CommunityModule,
@@ -119,6 +142,11 @@ import { PredictionModule } from './prediction/prediction.module';
     OrganizationModule,
     ProgramModule,
     AnalyticsModule,
+    WeatherModule,
+    IoTModule,
+    YieldModule,
+    CooperativeModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

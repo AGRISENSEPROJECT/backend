@@ -1,312 +1,246 @@
-# Agrisense Backend
+# AgriSense Backend
 
-A scalable NestJS backend for agricultural management with comprehensive authentication, farm management, and real-time features.
+NestJS + TypeORM + PostgreSQL + Redis API for the AgriSense Smart Agriculture Platform.
 
-## Features
+Multi-role platform covering farmers, suppliers, NGOs, government, and admins — with marketplace, payments, predictions, weather/IoT, cooperatives, and community.
 
-- 🔐 **Complete Authentication System**
-  - Email/Password registration with OTP verification
-  - Google OAuth integration
-  - Facebook OAuth integration
-  - JWT-based authentication
-  - Rate limiting with Redis
+## Stack
 
-- 🚜 **Farm Management**
-  - Multi-step farm registration
-  - Location tracking with GPS coordinates
-  - Owner information management
-  - Soil type classification
+- NestJS 11, TypeORM, PostgreSQL
+- Redis (OTP/refresh/blacklist + BullMQ queues)
+- JWT auth + RBAC (`RolesGuard`)
+- Brevo email, Flutterwave payments, OpenWeather (optional)
+- Swagger at `/api/docs`
 
-- 🐳 **Docker Support**
-  - PostgreSQL database
-  - Redis for caching and sessions
-  - Development and production configurations
+## Roles & access
 
-- 🛡️ **Security & Performance**
-  - Input validation with class-validator
-  - Rate limiting with Yarn package manager
-  - CORS configuration
-  - Environment-based configuration
+| Role | Status after OTP | Notes |
+|------|------------------|--------|
+| `farmer` | `active` | Farms, predictions, cart/orders, community write |
+| `supplier` | `pending` until admin approval | Products, order fulfillment, community read |
+| `ngo` / `government` | `pending` until org approval | Programs, analytics, community write |
+| `admin` | seeded only | Full platform admin |
 
-- 📚 **API Documentation**
-  - Interactive Swagger/OpenAPI documentation
-  - Complete request/response examples
-  - Try-it-out functionality
-  - Authentication testing
+## Quick start
 
-## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- Yarn (recommended) or npm
-- Docker and Docker Compose
-- Git
-
-### 1. Clone and Install
 ```bash
-git clone <repository-url>
-cd agrisense-backend
-yarn install
+cp .env.example .env
+# fill DB, Redis, JWT, BREVO_API_KEY, optional Flutterwave/OpenWeather
+
+docker-compose -f docker-compose.dev.yml up -d   # Postgres + Redis
+npm install   # or yarn
+node scripts/run-migration.js
+node scripts/seed-admin.js
+npx nest start --watch
 ```
 
-> **Note**: This project uses Yarn for package management. If you don't have Yarn installed, you can install it with `npm install -g yarn` or use npm commands instead.
+- API: `http://localhost:3001/api`
+- Swagger: `http://localhost:3001/api/docs`
+- Default admin (from `.env`): `ADMIN_EMAIL` / `ADMIN_PASSWORD`
 
-### 2. Environment Setup
+## Migrations & seed
+
 ```bash
-cp .env .env.local
-# Edit .env.local with your configuration
+npm run migrate          # runs all migrations/*.sql
+npm run seed:admin       # creates/updates platform admin
 ```
 
-### 3. Start Development Services
-```bash
-# Start PostgreSQL and Redis
-docker-compose -f docker-compose.dev.yml up -d
+Latest advanced schema: `migrations/012-add-advanced-features.sql` (weather, IoT, yield, cooperatives, reports, audit).
 
-# Start the application
-yarn start:dev
+## Auth
+
+```
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/verify-otp
+POST /api/auth/resend-otp
+POST /api/auth/refresh
+POST /api/auth/logout
+GET  /api/auth/profile
+GET  /api/auth/google | /api/auth/facebook
+POST /api/auth/google/verify-token
+POST /api/auth/facebook/verify-token
 ```
 
-The API will be available at `http://localhost:3000/api`
+Register body includes `role`: `farmer` | `supplier` | `ngo` | `government` (not `admin`).
 
-**Swagger Documentation**: `http://localhost:3000/api/docs`
+## Admin
 
-## API Endpoints
-
-### Swagger Documentation
-Access the interactive API documentation at: `http://localhost:3000/api/docs`
-
-The Swagger UI provides:
-- Complete API endpoint documentation
-- Request/response schemas with examples
-- Try-it-out functionality for testing
-- Authentication support (Bearer token)
-
-### Authentication
 ```
-POST /api/auth/register              # Register with email/password
-POST /api/auth/login                # Login with email/password
-POST /api/auth/verify-otp           # Verify email with OTP
-POST /api/auth/resend-otp           # Resend OTP
-GET  /api/auth/google               # Google OAuth (Web)
-GET  /api/auth/facebook             # Facebook OAuth (Web)
-POST /api/auth/google/verify-token  # Verify Google ID token (Mobile)
-POST /api/auth/facebook/verify-token # Verify Facebook token (Mobile)
-GET  /api/auth/profile              # Get user profile (protected)
+GET    /api/admin/users
+GET    /api/admin/users/:id
+PATCH  /api/admin/users/:id/status
+PATCH  /api/admin/users/:id/role
+GET    /api/admin/suppliers
+POST   /api/admin/suppliers/:id/approve
+POST   /api/admin/suppliers/:id/reject
+GET    /api/admin/organizations
+POST   /api/admin/organizations/:id/approve
+POST   /api/admin/organizations/:id/reject
+GET    /api/admin/stats
 ```
 
-### Farm Management
+## Farms & predictions
+
 ```
-POST /api/farm                  # Create farm (protected)
-PUT  /api/farm/location         # Update farm location (protected)
-PUT  /api/farm/owner           # Update owner info (protected)
-GET  /api/farm                 # Get farm details (protected)
-GET  /api/farm/status          # Get registration status (protected)
+POST /api/farm
+GET  /api/farm
+GET  /api/farm/:id
+PATCH /api/farm/:id
+DELETE /api/farm/:id
+
+POST /api/predictions/run
+GET  /api/predictions/dashboard
+GET  /api/predictions/history
 ```
 
-### Community
+Farmers own farms; admins can access any farm.
+
+## Suppliers & marketplace
+
 ```
-POST /api/community/posts       # Create a new post (protected)
-GET  /api/community/posts       # Get all posts (protected)
-POST /api/community/posts/:id/like    # Like/unlike a post (protected)
-POST /api/community/posts/:id/comment # Comment on a post (protected)
+GET/POST/PATCH /api/suppliers/profile
+GET/POST/PATCH/DELETE /api/products
+GET  /api/products/catalog          # public catalog for buyers
+
+POST /api/cart/items
+GET  /api/cart
+DELETE /api/cart/items/:id
+
+POST /api/orders
+GET  /api/orders
+GET  /api/orders/:id
+PATCH /api/orders/:id/status        # supplier fulfillment
+
+POST /api/payments/initiate         # Flutterwave
+POST /api/payments/verify
+POST /api/payments/webhook          # Flutterwave webhook
+POST /api/payments/cod/confirm      # supplier confirms COD
 ```
 
-### Predictions
-```
-POST /api/predictions/run        # Run AI prediction + store scan/history (protected)
-GET  /api/predictions/dashboard  # Get latest composition, trends, suggestions (protected)
-```
+## Notifications
 
-### Health Check
-```
-GET  /api/health               # Health check endpoint
-```
+In-app notifications are created for orders, approvals, weather/IoT alerts, etc. Every notification is also queued (BullMQ) for email delivery via Brevo.
 
-### Email Testing
 ```
-POST /api/test/email           # Test email sending functionality
+GET  /api/notifications
+GET  /api/notifications/unread-count
+PATCH /api/notifications/:id/read
+POST /api/notifications/read-all
 ```
 
-## Registration Flow
+## NGO / Government
 
-### Web Registration
-1. **User Registration**: Email, username, password
-2. **Email Verification**: OTP sent to email
-3. **Farm Creation**: Name, size, soil type
-4. **Location Setup**: Country, district, GPS coordinates
-5. **Owner Information**: Name, phone, email
+```
+GET/POST/PATCH /api/organizations/me
+GET/POST /api/programs
+POST /api/programs/:id/farmers
+GET  /api/analytics/overview
+```
 
-### Mobile OAuth Registration
-1. **Social Login**: User authenticates with Google/Facebook on device
-2. **Token Verification**: App sends ID/access token to backend
-3. **User Creation**: Backend verifies token and creates/logs in user
-4. **Farm Setup**: Same flow as web registration
+## Community
 
-## Environment Variables
+```
+POST /api/community/posts                 # farmer/ngo/gov/admin (+ tags)
+GET  /api/community/posts                 # paginated: ?page&limit&tag&search
+POST /api/community/posts/:id/like
+POST /api/community/posts/:id/comment
+POST /api/community/posts/:id/report
+GET  /api/community/reports               # admin
+PATCH /api/community/reports/:id          # admin moderate
+PATCH /api/community/posts/:id/visibility # admin hide/unhide
+```
+
+Suppliers: read-only. Hidden posts are omitted for non-admins.
+
+## Weather & IoT
+
+```
+POST /api/weather/alerts                  # admin/government
+GET  /api/weather/alerts
+GET  /api/weather/alerts/:id
+POST /api/weather/alerts/sync             # admin — OpenWeather pull
+
+POST /api/iot/sensors
+GET  /api/iot/sensors
+PATCH /api/iot/sensors/:id/status
+POST /api/iot/readings
+GET  /api/iot/sensors/:id/readings
+```
+
+Hourly cron syncs OpenWeather when `OPENWEATHER_API_KEY` is set. Out-of-range IoT readings create `iot_alert` notifications.
+
+## Yield forecasting
+
+```
+POST /api/yield/forecasts
+GET  /api/yield/forecasts
+GET  /api/yield/forecasts/:id
+PATCH /api/yield/forecasts/:id/status
+```
+
+Baseline model uses farm size × crop tons/ha (`baseline_v1`).
+
+## Cooperatives
+
+```
+POST /api/cooperatives
+GET  /api/cooperatives
+GET  /api/cooperatives/:id
+POST /api/cooperatives/:id/join
+POST /api/cooperatives/:id/leave
+POST /api/cooperatives/:id/members
+PATCH /api/cooperatives/:id/members/:userId
+DELETE /api/cooperatives/:id/members/:userId
+```
+
+## Audit logs
+
+```
+GET /api/audit/logs?page&limit&resource&actorId   # admin only
+```
+
+Written for admin user/supplier/org actions, weather alerts, IoT registration, yield forecasts, cooperatives, and community moderation.
+
+## Background jobs
+
+- Queue: `notification-emails` (BullMQ on Redis)
+- Schedule: OpenWeather hourly sync (`@nestjs/schedule`)
+- Configure Redis via `REDIS_HOST`/`REDIS_PORT` or `REDIS_URL`
+
+## Environment
+
+See `.env.example` for the full list. Key variables:
 
 ```env
-# Database
-# Preferred for production/external DBs (Neon, Render, Supabase, etc.)
-DATABASE_URL=postgresql://user:password@host:5432/database?sslmode=require
-DATABASE_SSL=true
-
-# Local database fallback (used when DATABASE_URL is not set)
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USERNAME=postgres
-DATABASE_PASSWORD=postgres123
-DATABASE_NAME=agrisense
-
-# Redis
+NODE_ENV=development
+PORT=3001
+DATABASE_URL=...                 # or DATABASE_HOST/PORT/USERNAME/PASSWORD/NAME
 REDIS_HOST=localhost
 REDIS_PORT=6379
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRES_IN=7d
-
-# Email (Gmail SMTP)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-
-# OAuth
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-FACEBOOK_APP_ID=your-facebook-app-id
-FACEBOOK_APP_SECRET=your-facebook-app-secret
-
-# Model API
-MODEL_API_URL=https://agrisense-api.onrender.com
-MODEL_PREDICT_PATH=/predict
-MODEL_API_TIMEOUT_MS=30000
+JWT_SECRET=...
+JWT_REFRESH_SECRET=...
+BREVO_API_KEY=...
+FLW_PUBLIC_KEY=...
+FLW_SECRET_KEY=...
+FLW_WEBHOOK_HASH=...
+OPENWEATHER_API_KEY=...          # optional
+MODEL_API_URL=http://127.0.0.1:5000
+ADMIN_EMAIL=admin@agrisense.com
+ADMIN_PASSWORD=Admin123!
 ```
 
-## Development Commands
+## Scripts
 
 ```bash
-# Development
-yarn start:dev
-
-# Build
-yarn build
-
-# Production
-yarn start:prod
-
-# Linting
-yarn lint
-
-# Testing
-yarn test
-yarn test:e2e
-yarn test:cov
+npm run start:dev
+npx nest build && npm run start:prod
+npm run migrate
+npm run seed:admin
+npm run lint
+npm test
 ```
-
-## Docker Commands
-
-```bash
-# Development (DB + Redis only)
-docker-compose -f docker-compose.dev.yml up -d
-
-# Full stack with app
-docker-compose up -d
-
-# Stop services
-docker-compose down
-
-# View logs
-docker-compose logs -f
-```
-
-## Testing with Postman
-
-### 1. Register User
-```json
-POST /api/auth/register
-{
-  "email": "user@example.com",
-  "username": "testuser",
-  "password": "password123"
-}
-```
-
-### 2. Verify OTP
-```json
-POST /api/auth/verify-otp
-{
-  "email": "user@example.com",
-  "otp": "123456"
-}
-```
-
-### 3. Login
-```json
-POST /api/auth/login
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-### 4. Create Farm (with Bearer token)
-```json
-POST /api/farm
-Authorization: Bearer <your-jwt-token>
-{
-  "name": "Green Valley Farm",
-  "size": 25.5,
-  "soilType": "loamy"
-}
-```
-
-### 5. Mobile Google Authentication
-```json
-POST /api/auth/google/verify-token
-{
-  "idToken": "google-id-token-from-mobile-app"
-}
-```
-
-### 6. Mobile Facebook Authentication
-```json
-POST /api/auth/facebook/verify-token
-{
-  "accessToken": "facebook-access-token-from-mobile-app"
-}
-```
-
-## Database Schema
-
-### Users Table
-- id (UUID, Primary Key)
-- email (Unique)
-- username (Unique)
-- password (Hashed)
-- provider (local/google/facebook)
-- isEmailVerified
-- timestamps
-
-### Farms Table
-- id (UUID, Primary Key)
-- name
-- size (Decimal)
-- soilType (Enum)
-- country, district
-- latitude, longitude (Optional)
-- ownerName, ownerPhone, ownerEmail
-- userId (Foreign Key)
-- timestamps
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License.
+UNLICENSED

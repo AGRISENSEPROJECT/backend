@@ -21,6 +21,8 @@ export enum NotificationType {
   PAYMENT_UPDATE = 'payment_update',
   ORGANIZATION_APPROVED = 'organization_approved',
   ORGANIZATION_REJECTED = 'organization_rejected',
+  WEATHER_ALERT = 'weather_alert',
+  IOT_ALERT = 'iot_alert',
 }
 
 @Entity('notifications')

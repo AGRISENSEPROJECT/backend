@@ -28,6 +28,60 @@ export class EmailService {
     return this.sendEmail(email, otp, 'reset');
   }
 
+  async sendNotificationEmail(
+    email: string,
+    title: string,
+    message: string,
+    type: string,
+  ) {
+    const isDevelopment = this.configService.get('NODE_ENV') === 'development';
+    const senderEmail = 'nzizaprince7@gmail.com';
+    const subject = `Agrisense - ${title}`;
+
+    if (isDevelopment) {
+      console.log('\n=================================');
+      console.log('📧 NOTIFICATION EMAIL');
+      console.log('=================================');
+      console.log(`📨 To: ${email}`);
+      console.log(`🏷  Type: ${type}`);
+      console.log(`📌 Title: ${title}`);
+      console.log(`💬 Message: ${message}`);
+      console.log('=================================\n');
+    }
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2e7d32;">${title}</h2>
+        <p>${message}</p>
+        <p style="color: #666; font-size: 12px; margin-top: 24px;">
+          Notification type: ${type}
+        </p>
+        <hr style="margin: 30px 0;">
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from Agrisense. Please do not reply to this email.
+        </p>
+      </div>
+    `;
+
+    if (this.brevoApi) {
+      try {
+        const sendSmtpEmail = new brevo.SendSmtpEmail();
+        sendSmtpEmail.to = [{ email }];
+        sendSmtpEmail.sender = { email: senderEmail, name: 'Agrisense' };
+        sendSmtpEmail.subject = subject;
+        sendSmtpEmail.htmlContent = emailHtml;
+        await this.brevoApi.sendTransacEmail(sendSmtpEmail);
+        console.log(`✅ Notification email sent to: ${email}`);
+      } catch (error) {
+        console.error('❌ Failed to send notification email via Brevo:', error);
+        console.error('❌ Error details:', error.response?.body || error.message);
+      }
+      return;
+    }
+
+    console.log('⚠️  Brevo API not initialized - notification email logged only');
+  }
+
   private async sendEmail(email: string, otp: string, type: 'verification' | 'reset') {
     const isDevelopment = this.configService.get('NODE_ENV') === 'development';
     const senderEmail = 'nzizaprince7@gmail.com';
