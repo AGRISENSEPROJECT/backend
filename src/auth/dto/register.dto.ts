@@ -1,5 +1,6 @@
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength, IsOptional, IsIn } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { UserRole } from '../../entities/user.entity';
 
 export class RegisterDto {
   @ApiProperty({
@@ -26,6 +27,31 @@ export class RegisterDto {
   @IsString()
   @MinLength(6)
   password: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Account role. Admin cannot self-register. Defaults to farmer. NGO/Government/Supplier require admin approval after OTP.',
+    enum: [
+      UserRole.FARMER,
+      UserRole.SUPPLIER,
+      UserRole.NGO,
+      UserRole.GOVERNMENT,
+    ],
+    example: UserRole.FARMER,
+    default: UserRole.FARMER,
+  })
+  @IsOptional()
+  @IsIn(
+    [UserRole.FARMER, UserRole.SUPPLIER, UserRole.NGO, UserRole.GOVERNMENT],
+    {
+      message: 'role must be farmer, supplier, ngo, or government',
+    },
+  )
+  role?:
+    | UserRole.FARMER
+    | UserRole.SUPPLIER
+    | UserRole.NGO
+    | UserRole.GOVERNMENT;
 }
 
 export class SocialRegisterDto {

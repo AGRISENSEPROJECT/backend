@@ -1,13 +1,11 @@
 import {
   Injectable,
-  BadRequestException,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Farm } from '../entities/farm.entity';
-import { User } from '../entities/user.entity';
+import { User, UserRole } from '../entities/user.entity';
 import { CreateFarmDto, UpdateFarmDto } from './dto/create-farm.dto';
 
 @Injectable()
@@ -18,6 +16,10 @@ export class FarmService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+
+  private isAdmin(role?: UserRole) {
+    return role === UserRole.ADMIN;
+  }
 
   async createFarm(userId: string, createFarmDto: CreateFarmDto) {
     const user = await this.userRepository.findOne({
@@ -42,9 +44,10 @@ export class FarmService {
     };
   }
 
-  async getAllFarms(userId: string) {
+  async getAllFarms(userId: string, role?: UserRole) {
     const farms = await this.farmRepository.find({
-      where: { userId },
+      where: this.isAdmin(role) ? {} : { userId },
+      relations: this.isAdmin(role) ? ['user'] : [],
       order: { createdAt: 'DESC' },
     });
 
@@ -54,9 +57,10 @@ export class FarmService {
     };
   }
 
-  async getFarm(userId: string, farmId: string) {
+  async getFarm(userId: string, farmId: string, role?: UserRole) {
     const farm = await this.farmRepository.findOne({
-      where: { id: farmId, userId },
+      where: this.isAdmin(role) ? { id: farmId } : { id: farmId, userId },
+      relations: this.isAdmin(role) ? ['user'] : [],
     });
 
     if (!farm) {
@@ -66,9 +70,14 @@ export class FarmService {
     return farm;
   }
 
-  async updateFarm(userId: string, farmId: string, updateFarmDto: UpdateFarmDto) {
+  async updateFarm(
+    userId: string,
+    farmId: string,
+    updateFarmDto: UpdateFarmDto,
+    role?: UserRole,
+  ) {
     const farm = await this.farmRepository.findOne({
-      where: { id: farmId, userId },
+      where: this.isAdmin(role) ? { id: farmId } : { id: farmId, userId },
     });
 
     if (!farm) {
@@ -84,9 +93,9 @@ export class FarmService {
     };
   }
 
-  async deleteFarm(userId: string, farmId: string) {
+  async deleteFarm(userId: string, farmId: string, role?: UserRole) {
     const farm = await this.farmRepository.findOne({
-      where: { id: farmId, userId },
+      where: this.isAdmin(role) ? { id: farmId } : { id: farmId, userId },
     });
 
     if (!farm) {

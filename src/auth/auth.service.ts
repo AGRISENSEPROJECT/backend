@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { User, AuthProvider } from '../entities/user.entity';
+import { User, AuthProvider, UserRole, UserStatus } from '../entities/user.entity';
 import { RegisterDto, SocialRegisterDto } from './dto/register.dto';
 import { LoginDto, VerifyOtpDto } from './dto/login.dto';
 import { UpdateProfileDto, ChangePasswordDto } from './dto/update-profile.dto';
@@ -33,7 +33,9 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, username, password } = registerDto;
+    const { email, username, password, role } = registerDto;
+
+    const selectedRole = role || UserRole.FARMER;
 
     // Check if user exists
     const existingUser = await this.userRepository.findOne({
@@ -47,12 +49,14 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Create user — pending until OTP (farmers) or OTP + admin approval (suppliers)
     const user = this.userRepository.create({
       email,
       username,
       password: hashedPassword,
       provider: AuthProvider.LOCAL,
+      role: selectedRole,
+      status: UserStatus.PENDING,
     });
 
     await this.userRepository.save(user);
@@ -63,6 +67,8 @@ export class AuthService {
     return {
       message: 'Registration successful. Please check your email for verification code.',
       userId: user.id,
+      role: user.role,
+      status: user.status,
     };
   }
 
@@ -75,17 +81,20 @@ export class AuthService {
     });
 
     if (user) {
+      this.assertAccountUsable(user);
       // User exists, just login
       return this.generateTokens(user);
     }
 
-    // Create new user
+    // Social signups default to farmer and become active immediately
     user = this.userRepository.create({
       email,
       username,
       provider: provider as AuthProvider,
       providerId,
       isEmailVerified: true, // Social accounts are pre-verified
+      role: UserRole.FARMER,
+      status: UserStatus.ACTIVE,
     });
 
     await this.userRepository.save(user);
@@ -95,7 +104,10 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
-    const user = await this.userRepository.findOne({ where: { email } });
+    const user = await this.userRepository.findOne({
+      where: { email },
+      relations: ['farms'],
+    });
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -103,6 +115,10 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Account is suspended. Contact support.');
     }
 
     // If email not verified, send OTP and return special response
@@ -113,9 +129,12 @@ export class AuthService {
         message: 'Email not verified. A new verification code has been sent to your email.',
         userId: user.id,
         email: user.email,
+        role: user.role,
+        status: user.status,
       };
     }
 
+    // Pending suppliers can authenticate (to complete profile) but remain unapproved
     return this.generateTokens(user);
   }
 
@@ -207,17 +226,39 @@ export class AuthService {
     }
 
     user.isEmailVerified = true;
+
+    // Farmers become active after OTP.
+    // Supplier / NGO / Government stay pending until admin approval.
+    if (user.role === UserRole.FARMER) {
+      user.status = UserStatus.ACTIVE;
+    } else if (
+      user.role === UserRole.SUPPLIER ||
+      user.role === UserRole.NGO ||
+      user.role === UserRole.GOVERNMENT
+    ) {
+      user.status = UserStatus.PENDING;
+    }
+
     await this.userRepository.save(user);
 
     // Delete OTP from Redis
     await this.redisService.del(`otp:${email}`);
 
+    const needsApproval =
+      user.role === UserRole.SUPPLIER ||
+      user.role === UserRole.NGO ||
+      user.role === UserRole.GOVERNMENT;
+
     return {
-      message: 'Email verified successfully',
+      message: needsApproval
+        ? `Email verified successfully. Your ${user.role} account is pending admin approval.`
+        : 'Email verified successfully',
       user: {
         id: user.id,
         email: user.email,
         username: user.username,
+        role: user.role,
+        status: user.status,
       },
     };
   }
@@ -227,11 +268,13 @@ export class AuthService {
       where: { id: payload.sub },
       relations: ['farms'],
     });
-    
+
     if (!user) {
       throw new UnauthorizedException();
     }
-    
+
+    this.assertAccountUsable(user);
+
     return user;
   }
 
@@ -251,6 +294,7 @@ export class AuthService {
       });
 
       if (user) {
+        this.assertAccountUsable(user);
         // Update user info if needed
         if (!user.providerId && user.provider === AuthProvider.LOCAL) {
           user.provider = AuthProvider.GOOGLE;
@@ -261,7 +305,7 @@ export class AuthService {
         return this.generateTokens(user);
       }
 
-      // Create new user
+      // Create new user (OAuth defaults to active farmer)
       const username = this.generateUsernameFromEmail(googleUser.email);
       user = this.userRepository.create({
         email: googleUser.email,
@@ -269,6 +313,8 @@ export class AuthService {
         provider: AuthProvider.GOOGLE,
         providerId: googleUser.sub,
         isEmailVerified: true,
+        role: UserRole.FARMER,
+        status: UserStatus.ACTIVE,
       });
 
       await this.userRepository.save(user);
@@ -301,6 +347,7 @@ export class AuthService {
       });
 
       if (user) {
+        this.assertAccountUsable(user);
         // Update user info if needed
         if (!user.providerId && user.provider === AuthProvider.LOCAL) {
           user.provider = AuthProvider.FACEBOOK;
@@ -311,7 +358,7 @@ export class AuthService {
         return this.generateTokens(user);
       }
 
-      // Create new user
+      // Create new user (OAuth defaults to active farmer)
       const username = this.generateUsernameFromEmail(facebookUser.email);
       user = this.userRepository.create({
         email: facebookUser.email,
@@ -319,6 +366,8 @@ export class AuthService {
         provider: AuthProvider.FACEBOOK,
         providerId: facebookUser.id,
         isEmailVerified: true,
+        role: UserRole.FARMER,
+        status: UserStatus.ACTIVE,
       });
 
       await this.userRepository.save(user);
@@ -337,9 +386,25 @@ export class AuthService {
     return `${baseUsername}_${randomSuffix}`;
   }
 
+  private assertAccountUsable(user: User) {
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Account is suspended. Contact support.');
+    }
+  }
+
+  private buildTokenPayload(user: User) {
+    return {
+      email: user.email,
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+      status: user.status,
+    };
+  }
+
   private async generateTokens(user: User) {
-    const payload = { email: user.email, sub: user.id, username: user.username };
-    
+    const payload = this.buildTokenPayload(user);
+
     // Generate access token (short-lived)
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get('JWT_SECRET'),
@@ -355,10 +420,10 @@ export class AuthService {
     // Store refresh token in Redis with expiry
     const refreshTokenExpiry = 7 * 24 * 60 * 60; // 7 days in seconds
     await this.redisService.set(`refresh:${user.id}:${refreshToken}`, 'valid', refreshTokenExpiry);
-    
+
     // Count farms
     const farmsCount = user.farms ? user.farms.length : 0;
-    
+
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
@@ -367,6 +432,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        role: user.role,
+        status: user.status,
         isEmailVerified: user.isEmailVerified,
         profileImage: user.profileImage,
         phoneNumber: user.phoneNumber,
@@ -398,8 +465,10 @@ export class AuthService {
         throw new UnauthorizedException('User not found');
       }
 
+      this.assertAccountUsable(user);
+
       // Generate new access token
-      const newPayload = { email: user.email, sub: user.id, username: user.username };
+      const newPayload = this.buildTokenPayload(user);
       const accessToken = this.jwtService.sign(newPayload, {
         secret: this.configService.get('JWT_SECRET'),
         expiresIn: this.configService.get('JWT_EXPIRES_IN') || '15m',
@@ -408,8 +477,13 @@ export class AuthService {
       return {
         access_token: accessToken,
         expires_in: this.configService.get('JWT_EXPIRES_IN') || '15m',
+        role: user.role,
+        status: user.status,
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
@@ -450,6 +524,8 @@ export class AuthService {
         username: user.username,
         phoneNumber: user.phoneNumber,
         profileImage: user.profileImage,
+        role: user.role,
+        status: user.status,
       },
     };
   }

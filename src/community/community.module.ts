@@ -6,10 +6,11 @@ import { CommunityGateway } from './community.gateway';
 import { Post } from '../entities/post.entity';
 import { Comment } from '../entities/comment.entity';
 import { Like } from '../entities/like.entity';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Post, Comment, Like])],
-    controllers: [CommunityController],
-    providers: [CommunityService, CommunityGateway],
+  imports: [TypeOrmModule.forFeature([Post, Comment, Like]), AuthModule],
+  controllers: [CommunityController],
+  providers: [CommunityService, CommunityGateway],
 })
-export class CommunityModule { }
+export class CommunityModule {}

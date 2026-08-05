@@ -6,9 +6,15 @@ import { Recommendation } from '../entities/recommendation.entity';
 import { SoilScan } from '../entities/soil-scan.entity';
 import { PredictionController } from './prediction.controller';
 import { PredictionService } from './prediction.service';
+import { AuthModule } from '../auth/auth.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Farm, SoilScan, PredictionRun, Recommendation])],
+  imports: [
+    TypeOrmModule.forFeature([Farm, SoilScan, PredictionRun, Recommendation]),
+    AuthModule,
+    NotificationModule,
+  ],
   controllers: [PredictionController],
   providers: [PredictionService],
 })
