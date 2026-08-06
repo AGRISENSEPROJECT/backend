@@ -1,6 +1,13 @@
-import { IsEmail, IsString, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, IsOptional, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsStrongPassword } from '../../common/validators/password.validator';
+
+const emptyToUndefined = ({ value }: { value: unknown }) => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  return typeof value === 'string' ? value.trim() : value;
+};
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -12,13 +19,29 @@ export class RegisterDto {
   @IsStrongPassword()
   password: string;
 
-  @ApiProperty({ example: 'John' })
+  @ApiPropertyOptional({
+    example: 'John',
+    description: 'Preferred. Legacy clients may send `username` instead.',
+  })
+  @Transform(emptyToUndefined)
+  @IsOptional()
   @IsString()
-  firstName: string;
+  @MinLength(1)
+  firstName?: string;
 
-  @ApiProperty({ example: 'Doe' })
+  @ApiPropertyOptional({ example: 'Doe' })
+  @Transform(emptyToUndefined)
+  @IsOptional()
   @IsString()
-  lastName: string;
+  lastName?: string;
+
+  /** Legacy mobile field — mapped to firstName when firstName is omitted */
+  @ApiPropertyOptional({ example: 'john_doe', deprecated: true })
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  username?: string;
 
   @ApiProperty({ example: '+250788123456', required: false })
   @IsOptional()
@@ -63,4 +86,9 @@ export class SocialRegisterDto {
   @IsOptional()
   @IsString()
   lastName?: string;
+
+  @ApiPropertyOptional({ deprecated: true })
+  @IsOptional()
+  @IsString()
+  username?: string;
 }

@@ -26,6 +26,7 @@ import { VerifyGoogleTokenDto, VerifyFacebookTokenDto } from './dto/verify-token
 import { AuditService } from '../common/services/audit.service';
 import { AuditAction } from '../entities/audit-log.entity';
 import { NATIONAL_ID_REGEX } from '../common/validators/password.validator';
+import { userDisplayName } from '../common/utils/author.mapper';
 
 @Injectable()
 export class AuthService {
@@ -44,7 +45,15 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, firstName, lastName, phoneNumber } = registerDto;
+    const { email, password, phoneNumber } = registerDto;
+    const firstName = (registerDto.firstName || registerDto.username || '').trim();
+    const lastName = (registerDto.lastName || '').trim();
+
+    if (!firstName) {
+      throw new BadRequestException(
+        'First name is required (legacy clients may send username instead)',
+      );
+    }
 
     const duplicateConditions: Array<{ email?: string; phoneNumber?: string }> = [{ email }];
     if (phoneNumber) {
@@ -65,7 +74,7 @@ export class AuthService {
       email,
       password: hashedPassword,
       firstName,
-      lastName,
+      lastName: lastName || undefined,
       phoneNumber,
       provider: AuthProvider.LOCAL,
       role: UserRole.FARMER,
@@ -547,11 +556,15 @@ export class AuthService {
   }
 
   private mapUserProfile(user: User, farmsCount = 0) {
+    const displayName = userDisplayName(user);
     return {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      /** Legacy mobile clients still read username */
+      username: displayName,
+      displayName,
       role: user.role,
       status: user.status,
       phoneNumber: user.phoneNumber,
@@ -683,6 +696,7 @@ export class AuthService {
     // Update fields
     if (updateProfileDto.phoneNumber !== undefined) user.phoneNumber = updateProfileDto.phoneNumber;
     if (updateProfileDto.firstName) user.firstName = updateProfileDto.firstName;
+    else if (updateProfileDto.username) user.firstName = updateProfileDto.username;
     if (updateProfileDto.lastName) user.lastName = updateProfileDto.lastName;
 
     await this.userRepository.save(user);

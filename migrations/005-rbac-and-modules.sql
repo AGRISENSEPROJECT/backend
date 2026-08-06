@@ -18,23 +18,23 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Add new user columns
-ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS national_id VARCHAR UNIQUE;
+-- Add new user columns (camelCase — matches TypeORM entities)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "firstName" VARCHAR;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "lastName" VARCHAR;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "nationalId" VARCHAR;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role user_role_enum DEFAULT 'FARMER';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status user_status_enum DEFAULT 'PENDING';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_step INT DEFAULT 1;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS document_type VARCHAR;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS id_image_url VARCHAR;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS identity_verification_status identity_verification_status_enum;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS national_id_verified BOOLEAN DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS assigned_regions TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "onboardingStep" INT DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "onboardingCompleted" BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "documentType" VARCHAR;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "idImageUrl" VARCHAR;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "identityVerificationStatus" identity_verification_status_enum;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "nationalIdVerified" BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "assignedRegions" TEXT;
 
 -- Post moderation columns
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE;
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_reported BOOLEAN DEFAULT FALSE;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS "isHidden" BOOLEAN DEFAULT FALSE;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS "isReported" BOOLEAN DEFAULT FALSE;
 
 -- Report enums
 DO $$ BEGIN
@@ -47,47 +47,42 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Post reports table
+-- Post reports table (camelCase FKs matching PostReport entity)
 CREATE TABLE IF NOT EXISTS post_reports (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-  reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "postId" UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  "reporterId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   reason report_reason_enum NOT NULL,
   description TEXT,
   status report_status_enum DEFAULT 'PENDING',
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW()
 );
 
--- Chat messages table
+-- Chat messages table (camelCase matching ChatMessage entity)
 CREATE TABLE IF NOT EXISTS chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_id VARCHAR NOT NULL,
-  sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "roomId" VARCHAR NOT NULL,
+  "senderId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
-  image_url VARCHAR,
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  "imageUrl" VARCHAR,
+  "isRead" BOOLEAN DEFAULT FALSE,
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW()
 );
 
--- Notification enums
-DO $$ BEGIN
-  CREATE TYPE notification_type_enum AS ENUM ('SYSTEM', 'PREDICTION', 'COMMUNITY', 'FARM', 'ORDER', 'MODERATION');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Notifications table
+-- Notifications table (camelCase — matches Notification entity / community module)
+-- Prefer varchar type for community_* notification kinds
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  type notification_type_enum DEFAULT 'SYSTEM',
-  title VARCHAR NOT NULL,
+  "userId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(64) NOT NULL DEFAULT 'system',
+  title VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
-  metadata JSONB,
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  data JSONB,
+  "isRead" BOOLEAN NOT NULL DEFAULT false,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Product enums
@@ -103,12 +98,12 @@ CREATE TABLE IF NOT EXISTS products (
   description TEXT,
   price DECIMAL(12,2) NOT NULL,
   category product_category_enum DEFAULT 'OTHER',
-  image_url VARCHAR,
+  "imageUrl" VARCHAR,
   stock INT DEFAULT 0,
-  is_active BOOLEAN DEFAULT TRUE,
-  supplier_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  "isActive" BOOLEAN DEFAULT TRUE,
+  "supplierId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW()
 );
 
 -- Order enums
@@ -120,23 +115,23 @@ END $$;
 -- Orders table
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  buyer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  "buyerId" UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  "productId" UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   quantity INT NOT NULL,
-  total_price DECIMAL(12,2) NOT NULL,
+  "totalPrice" DECIMAL(12,2) NOT NULL,
   status order_status_enum DEFAULT 'PENDING',
   notes TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW()
 );
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
-CREATE INDEX IF NOT EXISTS idx_users_national_id ON users(national_id);
+CREATE INDEX IF NOT EXISTS idx_users_nationalId ON users("nationalId");
 CREATE INDEX IF NOT EXISTS idx_farms_province ON farms(province);
 CREATE INDEX IF NOT EXISTS idx_farms_district ON farms(district);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_room ON chat_messages(room_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_products_supplier ON products(supplier_id);
-CREATE INDEX IF NOT EXISTS idx_orders_buyer ON orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_room ON chat_messages("roomId");
+CREATE INDEX IF NOT EXISTS "IDX_notifications_userId" ON notifications ("userId");
+CREATE INDEX IF NOT EXISTS idx_products_supplier ON products("supplierId");
+CREATE INDEX IF NOT EXISTS idx_orders_buyer ON orders("buyerId");

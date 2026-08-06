@@ -62,11 +62,19 @@ export class AppBootstrapService implements OnApplicationBootstrap {
       )
     `);
 
-    const migrationDir = path.join(process.cwd(), 'migrations');
-    if (!fs.existsSync(migrationDir)) {
-      this.logger.warn('Migrations directory not found; skipping SQL migrations.');
+    const candidates = [
+      path.join(process.cwd(), 'migrations'),
+      path.join(__dirname, '..', 'migrations'),
+      path.join(__dirname, '..', '..', 'migrations'),
+    ];
+    const migrationDir = candidates.find((dir) => fs.existsSync(dir));
+    if (!migrationDir) {
+      this.logger.warn(
+        `Migrations directory not found (tried: ${candidates.join(', ')}); skipping SQL migrations.`,
+      );
       return;
     }
+    this.logger.log(`Using migrations directory: ${migrationDir}`);
 
     const migrationFiles = fs
       .readdirSync(migrationDir)
@@ -86,11 +94,18 @@ export class AppBootstrapService implements OnApplicationBootstrap {
       const migrationPath = path.join(migrationDir, filename);
       const sql = fs.readFileSync(migrationPath, 'utf8');
       this.logger.log(`Running SQL migration: ${filename}`);
-      await this.dataSource.query(sql);
-      await this.dataSource.query(
-        `INSERT INTO schema_migrations (filename) VALUES ($1)`,
-        [filename],
-      );
+      try {
+        await this.dataSource.query(sql);
+        await this.dataSource.query(
+          `INSERT INTO schema_migrations (filename) VALUES ($1)`,
+          [filename],
+        );
+      } catch (error) {
+        this.logger.error(
+          `Migration failed: ${filename} — ${(error as Error).message}`,
+        );
+        throw error;
+      }
     }
   }
 

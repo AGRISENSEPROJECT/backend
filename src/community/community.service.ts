@@ -30,14 +30,9 @@ import { CommunityGateway } from './community.gateway';
 import { PostReport, ReportStatus } from '../entities/post-report.entity';
 import { UserRole } from '../common/enums/user-role.enum';
 import { ReportPostDto } from './dto/create-post.dto';
+import { mapToAuthor, userDisplayName } from '../common/utils/author.mapper';
 
-type AuthorDto = {
-  id: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  email?: string;
-  profileImage?: string | null;
-};
+type AuthorDto = NonNullable<ReturnType<typeof mapToAuthor>>;
 
 @Injectable()
 export class CommunityService {
@@ -72,19 +67,11 @@ export class CommunityService {
   ) {}
 
   private toAuthor(user?: User | null): AuthorDto | null {
-    if (!user) return null;
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      profileImage: user.profileImage ?? null,
-    };
+    return mapToAuthor(user);
   }
 
   private displayName(user: User): string {
-    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
-    return name || user.email;
+    return userDisplayName(user);
   }
 
   private extractHashtags(text: string): string[] {

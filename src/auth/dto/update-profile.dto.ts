@@ -37,6 +37,13 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   lastName?: string;
+
+  /** Legacy mobile field — mapped onto firstName when firstName is omitted */
+  @ApiPropertyOptional({ deprecated: true })
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsString()
+  username?: string;
 }
 
 export class ChangePasswordDto {
