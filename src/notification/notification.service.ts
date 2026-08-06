@@ -132,4 +132,17 @@ export class NotificationService {
     );
     return { message: 'All notifications marked as read' };
   }
+
+  async clearAll(userId: string) {
+    await this.notificationRepository.delete({ userId });
+    return { message: 'All notifications cleared', deleted: true };
+  }
+
+  async deleteOne(userId: string, notificationId: string) {
+    const result = await this.notificationRepository.delete({
+      id: notificationId,
+      userId,
+    });
+    return { deleted: (result.affected || 0) > 0, id: notificationId };
+  }
 }

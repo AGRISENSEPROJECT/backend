@@ -202,6 +202,14 @@ export class CommunityGateway
     }
   }
 
+  notifyMessageUpdated(message: any, memberUserIds: string[]) {
+    const room = `conversation:${message.conversationId}`;
+    this.server.to(room).emit('message:updated', message);
+    for (const userId of memberUserIds) {
+      this.server.to(`user:${userId}`).emit('message:updated', message);
+    }
+  }
+
   notifyMessagesRead(payload: any, memberUserIds: string[]) {
     this.server
       .to(`conversation:${payload.conversationId}`)

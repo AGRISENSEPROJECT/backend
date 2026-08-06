@@ -31,6 +31,9 @@ export class Message {
   @Column({ type: 'timestamptz', nullable: true, default: null })
   deletedAt: Date | null;
 
+  @Column({ type: 'timestamptz', nullable: true, default: null })
+  editedAt: Date | null;
+
   @OneToMany(() => MessageReceipt, (receipt) => receipt.message)
   receipts: MessageReceipt[];
 

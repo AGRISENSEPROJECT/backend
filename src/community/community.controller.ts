@@ -382,6 +382,17 @@ export class CommunityController {
     return this.communityService.deleteMessage(req.user, id);
   }
 
+  @Patch('messages/:id')
+  @ApiOperation({ summary: 'Edit your own message' })
+  @ApiBody({ type: SendMessageDto })
+  updateMessage(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: SendMessageDto,
+  ) {
+    return this.communityService.updateMessage(req.user, id, dto.content);
+  }
+
   @Post('conversations/:id/read')
   @ApiOperation({ summary: 'Mark conversation as read (per-message receipts)' })
   markRead(@Req() req, @Param('id') id: string) {

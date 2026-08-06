@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Delete,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -54,6 +55,19 @@ export class NotificationController {
   @ApiOperation({ summary: 'Mark all my notifications as read' })
   markAllRead(@Req() req: Request) {
     return this.notificationService.markAllAsRead(this.getActor(req).id);
+  }
+
+  @Delete()
+  @ApiOperation({ summary: 'Clear / delete all my notifications' })
+  clearAll(@Req() req: Request) {
+    return this.notificationService.clearAll(this.getActor(req).id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete one notification' })
+  @ApiParam({ name: 'id', description: 'Notification ID' })
+  deleteOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.notificationService.deleteOne(this.getActor(req).id, id);
   }
 
   @Patch(':id/read')

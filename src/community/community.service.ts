@@ -1153,6 +1153,7 @@ export class CommunityService {
           id: message.id,
           content: message.deletedAt ? '[deleted]' : message.content,
           deletedAt: message.deletedAt ?? null,
+          editedAt: message.editedAt ?? null,
           createdAt: message.createdAt,
           conversationId,
           sender: this.toAuthor(message.sender),
@@ -1199,6 +1200,7 @@ export class CommunityService {
       id: saved.id,
       content: saved.content,
       deletedAt: null,
+      editedAt: null,
       createdAt: saved.createdAt,
       conversationId,
       sender: this.toAuthor(user),
@@ -1256,6 +1258,47 @@ export class CommunityService {
       this.memberIds(message.conversation),
     );
     return payload;
+  }
+
+  async updateMessage(user: User, messageId: string, content: string) {
+    const trimmed = content?.trim();
+    if (!trimmed) throw new BadRequestException('Message content is required');
+
+    const message = await this.messageRepository.findOne({
+      where: { id: messageId },
+      relations: [
+        'sender',
+        'conversation',
+        'conversation.members',
+        'conversation.members.user',
+      ],
+    });
+    if (!message) throw new NotFoundException('Message not found');
+    if (message.deletedAt) {
+      throw new BadRequestException('Cannot edit a deleted message');
+    }
+    if (message.sender?.id !== user.id) {
+      throw new ForbiddenException('You can only edit your own messages');
+    }
+
+    message.content = trimmed;
+    message.editedAt = new Date();
+    await this.messageRepository.save(message);
+
+    const serialized = {
+      id: message.id,
+      conversationId: message.conversation.id,
+      content: message.content,
+      createdAt: message.createdAt,
+      editedAt: message.editedAt,
+      deletedAt: null,
+      sender: this.toAuthor(message.sender),
+    };
+
+    const memberIds = this.memberIds(message.conversation);
+    this.communityGateway.notifyMessageUpdated(serialized, memberIds);
+
+    return serialized;
   }
 
   async markConversationRead(user: User, conversationId: string) {
