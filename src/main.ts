@@ -60,6 +60,7 @@ async function bootstrap() {
     .addTag('NGO', 'Regional NGO dashboards, programs, and reports')
     .addTag('Government', 'National and regional analytics, advisories, and reports')
     .addTag('Notifications', 'User notification inbox and read states')
+    .addTag('Waitlist', 'Public early-access waitlist and promotional checklist emails')
     .addBearerAuth(
       {
         type: 'http',

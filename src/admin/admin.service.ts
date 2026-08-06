@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -23,13 +24,18 @@ import { AuditService } from '../common/services/audit.service';
 import { AuditAction } from '../entities/audit-log.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../entities/notification.entity';
+import { WaitlistService } from '../waitlist/waitlist.service';
 import {
   CreateUserDto,
+  CreateSupplierAccountDto,
+  CreateNgoAccountDto,
   UpdateUserStatusDto,
   UpdateUserRoleDto,
   AssignRegionsDto,
   ApprovalDto,
   BroadcastDto,
+  AdminResetPasswordDto,
+  ModeratePostDto,
 } from './dto/admin.dto';
 
 @Injectable()
@@ -55,11 +61,25 @@ export class AdminService {
     private auditLogRepository: Repository<AuditLog>,
     private auditService: AuditService,
     private notificationService: NotificationService,
+    private waitlistService: WaitlistService,
   ) {}
 
-  async createUser(dto: CreateUserDto) {
+  private assertNotTargetingAdmin(actorId: string | undefined, target: User, action: string) {
+    if (target.role !== UserRole.ADMIN) {
+      return;
+    }
+    if (actorId && target.id === actorId) {
+      throw new ForbiddenException(`Admins cannot ${action} themselves`);
+    }
+    throw new ForbiddenException(`Admins cannot ${action} other admin accounts`);
+  }
+
+  async createUser(dto: CreateUserDto, actorId?: string) {
     if (dto.role === UserRole.FARMER) {
       throw new BadRequestException('Farmers must self-register');
+    }
+    if (dto.role === UserRole.ADMIN) {
+      throw new BadRequestException('Admin accounts cannot be created through this endpoint');
     }
 
     const duplicateConditions: Array<{ email?: string; phoneNumber?: string }> = [{ email: dto.email }];
@@ -74,7 +94,7 @@ export class AdminService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
     const user = this.userRepository.create({
-      email: dto.email,
+      email: dto.email.toLowerCase().trim(),
       password: hashedPassword,
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -95,11 +115,176 @@ export class AdminService {
         user,
         organizationName: `${dto.firstName} ${dto.lastName} Organization`,
         approvalStatus: ApprovalStatus.APPROVED,
+        contactEmail: user.email,
+        contactPhone: dto.phoneNumber,
       });
       await this.ngoRepository.save(org);
     }
 
-    return { message: 'User created successfully', user: { id: user.id, email: user.email, role: user.role } };
+    if (dto.role === UserRole.SUPPLIER) {
+      const profile = this.supplierProfileRepository.create({
+        userId: user.id,
+        user,
+        businessName: `${dto.firstName} ${dto.lastName} Supplies`,
+        businessLocation: 'Rwanda',
+        businessCategory: 'OTHER',
+        contactEmail: user.email,
+        contactPhone: dto.phoneNumber,
+        approvalStatus: ApprovalStatus.APPROVED,
+        verificationStatus: ApprovalStatus.APPROVED,
+        serviceRegions: dto.assignedRegions || [],
+      });
+      await this.supplierProfileRepository.save(profile);
+    }
+
+    await this.auditService.log(AuditAction.REGISTER, actorId, user.email, {
+      createdRole: user.role,
+      via: 'admin.createUser',
+    });
+
+    return {
+      message: 'User created successfully',
+      user: { id: user.id, email: user.email, role: user.role, status: user.status },
+    };
+  }
+
+  async createSupplierAccount(dto: CreateSupplierAccountDto, actorId?: string) {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.userRepository.findOne({ where: { email } });
+    if (existing) throw new ConflictException('User with this email already exists');
+
+    const autoApprove = dto.autoApprove !== false;
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const user = this.userRepository.create({
+      email,
+      password: hashedPassword,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phoneNumber: dto.phoneNumber,
+      role: UserRole.SUPPLIER,
+      status: autoApprove ? UserStatus.ACTIVE : UserStatus.PENDING,
+      isEmailVerified: true,
+      onboardingCompleted: true,
+      onboardingStep: 3,
+    });
+    await this.userRepository.save(user);
+
+    const profile = this.supplierProfileRepository.create({
+      userId: user.id,
+      user,
+      businessName: dto.businessName,
+      businessLocation: dto.businessLocation,
+      businessCategory: dto.businessCategory,
+      businessDescription: dto.businessDescription ?? null,
+      contactPhone: dto.phoneNumber ?? null,
+      contactEmail: email,
+      serviceRegions: dto.serviceRegions || [],
+      approvalStatus: autoApprove ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING,
+      verificationStatus: autoApprove ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING,
+    });
+    await this.supplierProfileRepository.save(profile);
+
+    await this.notificationService.create(
+      user.id,
+      'Supplier Account Created',
+      autoApprove
+        ? 'An administrator created and approved your supplier account. You can now sign in.'
+        : 'An administrator created your supplier account. It is pending approval.',
+      NotificationType.SYSTEM,
+    );
+
+    await this.auditService.log(AuditAction.SUPPLIER_APPROVED, actorId, email, {
+      supplierId: user.id,
+      autoApprove,
+      via: 'admin.createSupplierAccount',
+    });
+
+    return {
+      message: autoApprove
+        ? 'Supplier account created and approved'
+        : 'Supplier account created and pending approval',
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+      },
+      profile: {
+        id: profile.id,
+        businessName: profile.businessName,
+        approvalStatus: profile.approvalStatus,
+      },
+    };
+  }
+
+  async createNgoAccount(dto: CreateNgoAccountDto, actorId?: string) {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.userRepository.findOne({ where: { email } });
+    if (existing) throw new ConflictException('User with this email already exists');
+
+    const autoApprove = dto.autoApprove !== false;
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const user = this.userRepository.create({
+      email,
+      password: hashedPassword,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phoneNumber: dto.phoneNumber,
+      role: UserRole.NGO,
+      status: autoApprove ? UserStatus.ACTIVE : UserStatus.PENDING,
+      isEmailVerified: true,
+      onboardingCompleted: true,
+      onboardingStep: 3,
+      assignedRegions: dto.assignedRegions || [],
+    });
+    await this.userRepository.save(user);
+
+    const org = this.ngoRepository.create({
+      userId: user.id,
+      user,
+      organizationName: dto.organizationName,
+      description: dto.description ?? undefined,
+      registrationNumber: dto.registrationNumber ?? undefined,
+      contactEmail: email,
+      contactPhone: dto.phoneNumber ?? undefined,
+      website: dto.website ?? undefined,
+      focusAreas: dto.focusAreas || [],
+      approvalStatus: autoApprove ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING,
+    });
+    await this.ngoRepository.save(org);
+
+    await this.notificationService.create(
+      user.id,
+      'NGO Account Created',
+      autoApprove
+        ? 'An administrator created and approved your NGO account. You can now sign in.'
+        : 'An administrator created your NGO account. It is pending approval.',
+      NotificationType.SYSTEM,
+    );
+
+    await this.auditService.log(AuditAction.NGO_APPROVED, actorId, email, {
+      ngoUserId: user.id,
+      autoApprove,
+      via: 'admin.createNgoAccount',
+    });
+
+    return {
+      message: autoApprove
+        ? 'NGO account created and approved'
+        : 'NGO account created and pending approval',
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        assignedRegions: user.assignedRegions,
+      },
+      organization: {
+        id: org.id,
+        organizationName: org.organizationName,
+        approvalStatus: org.approvalStatus,
+      },
+    };
   }
 
   async getAllUsers(
@@ -143,26 +328,73 @@ export class AdminService {
     return user;
   }
 
-  async updateUserStatus(id: string, dto: UpdateUserStatusDto) {
+  async updateUserStatus(id: string, dto: UpdateUserStatusDto, actorId?: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
+
+    if (dto.status === UserStatus.SUSPENDED || dto.status === UserStatus.BANNED) {
+      this.assertNotTargetingAdmin(actorId, user, 'suspend or ban');
+    }
 
     user.status = dto.status as UserStatus;
     await this.userRepository.save(user);
 
-    const action = dto.status === UserStatus.ACTIVE
-      ? AuditAction.USER_REACTIVATED
-      : AuditAction.USER_SUSPENDED;
-    await this.auditService.log(action, id, user.email, { status: dto.status });
+    const action =
+      dto.status === UserStatus.ACTIVE
+        ? AuditAction.USER_REACTIVATED
+        : AuditAction.USER_SUSPENDED;
+    await this.auditService.log(action, actorId || id, user.email, { status: dto.status, targetUserId: id });
 
     return { message: 'User status updated', status: user.status };
   }
 
-  async updateUserRole(id: string, dto: UpdateUserRoleDto) {
+  async suspendUser(id: string, actorId: string) {
+    return this.updateUserStatus(id, { status: UserStatus.SUSPENDED }, actorId);
+  }
+
+  async banUser(id: string, actorId: string) {
+    return this.updateUserStatus(id, { status: UserStatus.BANNED }, actorId);
+  }
+
+  async reactivateUser(id: string, actorId: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    if (user.role === UserRole.ADMIN && dto.role !== UserRole.ADMIN) {
-      throw new BadRequestException('Cannot demote admin through this endpoint without safeguards');
+    this.assertNotTargetingAdmin(actorId, user, 'modify status of');
+    return this.updateUserStatus(id, { status: UserStatus.ACTIVE }, actorId);
+  }
+
+  async forceVerifyEmail(id: string, actorId?: string) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    this.assertNotTargetingAdmin(actorId, user, 'force-verify');
+    user.isEmailVerified = true;
+    await this.userRepository.save(user);
+    await this.auditService.log(AuditAction.EMAIL_VERIFY, actorId, user.email, {
+      forcedByAdmin: true,
+      targetUserId: id,
+    });
+    return { message: 'Email marked as verified', email: user.email };
+  }
+
+  async resetUserPassword(id: string, dto: AdminResetPasswordDto, actorId?: string) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    this.assertNotTargetingAdmin(actorId, user, 'reset password for');
+    user.password = await bcrypt.hash(dto.newPassword, 12);
+    await this.userRepository.save(user);
+    await this.auditService.log(AuditAction.PASSWORD_RESET, actorId, user.email, {
+      forcedByAdmin: true,
+      targetUserId: id,
+    });
+    return { message: 'Password reset successfully' };
+  }
+
+  async updateUserRole(id: string, dto: UpdateUserRoleDto, actorId?: string) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    this.assertNotTargetingAdmin(actorId, user, 'change the role of');
+    if (dto.role === UserRole.ADMIN) {
+      throw new BadRequestException('Cannot promote users to ADMIN through this endpoint');
     }
     user.role = dto.role;
     await this.userRepository.save(user);
@@ -180,26 +412,31 @@ export class AdminService {
     return { message: 'Regions assigned', assignedRegions: user.assignedRegions };
   }
 
-  async softDeleteUser(id: string) {
+  async softDeleteUser(id: string, actorId?: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    if (user.role === UserRole.ADMIN) throw new BadRequestException('Cannot delete admin users');
+    this.assertNotTargetingAdmin(actorId, user, 'delete');
 
     user.deletedAt = new Date();
     user.status = UserStatus.BANNED;
     await this.userRepository.save(user);
-    await this.auditService.log(AuditAction.USER_DELETED, id, user.email);
+    await this.auditService.log(AuditAction.USER_DELETED, actorId || id, user.email, {
+      targetUserId: id,
+    });
     return { message: 'User soft deleted' };
   }
 
-  async restoreUser(id: string) {
+  async restoreUser(id: string, actorId?: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
+    this.assertNotTargetingAdmin(actorId, user, 'restore');
 
     user.deletedAt = null;
     user.status = UserStatus.ACTIVE;
     await this.userRepository.save(user);
-    await this.auditService.log(AuditAction.USER_RESTORED, id, user.email);
+    await this.auditService.log(AuditAction.USER_RESTORED, actorId || id, user.email, {
+      targetUserId: id,
+    });
     return { message: 'User restored' };
   }
 
@@ -208,6 +445,7 @@ export class AdminService {
     if (!profile) throw new NotFoundException('Supplier profile not found');
 
     profile.approvalStatus = ApprovalStatus.APPROVED;
+    profile.verificationStatus = ApprovalStatus.APPROVED;
     profile.rejectionReason = null;
     await this.supplierProfileRepository.save(profile);
 
@@ -279,9 +517,32 @@ export class AdminService {
     });
   }
 
+  async listSuppliers(page = 1, limit = 20) {
+    const [items, total] = await this.supplierProfileRepository.findAndCount({
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+  }
+
+  async listNgos(page = 1, limit = 20) {
+    const [items, total] = await this.ngoRepository.findAndCount({
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
+  }
+
   async broadcastAnnouncement(dto: BroadcastDto) {
+    const where: any = { deletedAt: IsNull(), status: UserStatus.ACTIVE };
+    if (dto.role) where.role = dto.role;
+
     const users = await this.userRepository.find({
-      where: { deletedAt: IsNull(), status: UserStatus.ACTIVE },
+      where,
       select: ['id'],
     });
 
@@ -295,6 +556,51 @@ export class AdminService {
     }
 
     return { message: 'Announcement sent', recipientCount: users.length };
+  }
+
+  async moderatePost(postId: string, dto: ModeratePostDto, actorId?: string) {
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['user'],
+    });
+    if (!post) throw new NotFoundException('Post not found');
+
+    if (dto.action === 'hide') {
+      post.isHidden = true;
+      post.isReported = true;
+      await this.postRepository.save(post);
+      await this.auditService.log(AuditAction.USER_SUSPENDED, actorId, post.user?.email, {
+        action: 'hide_post',
+        postId,
+        reason: dto.reason,
+      });
+      return { message: 'Post hidden', postId };
+    }
+
+    if (dto.action === 'unhide') {
+      post.isHidden = false;
+      await this.postRepository.save(post);
+      return { message: 'Post restored', postId };
+    }
+
+    await this.postRepository.remove(post);
+    await this.auditService.log(AuditAction.USER_DELETED, actorId, post.user?.email, {
+      action: 'delete_post',
+      postId,
+      reason: dto.reason,
+    });
+    return { message: 'Post deleted', postId };
+  }
+
+  async getReportedPosts(page = 1, limit = 20) {
+    const [posts, total] = await this.postRepository.findAndCount({
+      where: [{ isReported: true }, { isHidden: true }],
+      relations: ['user'],
+      order: { updatedAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { posts, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
   }
 
   async getAuditLogs(page = 1, limit = 50, action?: AuditAction) {
@@ -342,6 +648,36 @@ export class AdminService {
       totalProducts,
       farmsByProvince,
       usersByRole,
+    };
+  }
+
+  async getPlatformOverview() {
+    const farmStats = await this.getFarmStatistics();
+    const pendingSuppliers = await this.supplierProfileRepository.count({
+      where: { approvalStatus: ApprovalStatus.PENDING },
+    });
+    const pendingNgos = await this.ngoRepository.count({
+      where: { approvalStatus: ApprovalStatus.PENDING },
+    });
+    const suspendedUsers = await this.userRepository.count({
+      where: { status: UserStatus.SUSPENDED, deletedAt: IsNull() },
+    });
+    const bannedUsers = await this.userRepository.count({
+      where: { status: UserStatus.BANNED, deletedAt: IsNull() },
+    });
+    const reportedPosts = await this.postRepository.count({
+      where: { isReported: true },
+    });
+    const waitlist = await this.waitlistService.getStats();
+
+    return {
+      ...farmStats,
+      pendingSuppliers,
+      pendingNgos,
+      suspendedUsers,
+      bannedUsers,
+      reportedPosts,
+      waitlist,
     };
   }
 

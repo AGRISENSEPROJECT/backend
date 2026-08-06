@@ -36,8 +36,10 @@ import { Message } from './entities/message.entity';
 import { UserBlock } from './entities/user-block.entity';
 import { PostReaction } from './entities/post-reaction.entity';
 import { MessageReceipt } from './entities/message-receipt.entity';
+import { WaitlistEntry } from './entities/waitlist-entry.entity';
 import { PredictionModule } from './prediction/prediction.module';
 import { CommonModule } from './common/common.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 import { AppBootstrapService } from './app.bootstrap.service';
 
 @Module({
@@ -91,6 +93,7 @@ import { AppBootstrapService } from './app.bootstrap.service';
             UserBlock,
             PostReaction,
             MessageReceipt,
+            WaitlistEntry,
           ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
@@ -124,6 +127,7 @@ import { AppBootstrapService } from './app.bootstrap.service';
     AdminModule,
     SupplierModule,
     RegionalModule,
+    WaitlistModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppBootstrapService],
