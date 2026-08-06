@@ -38,7 +38,7 @@ ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS "growingSeason" VARCHAR;
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS "soilType" VARCHAR;
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS "weatherConditions" JSONB;
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS "diseasePrediction" VARCHAR;
-ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS "confidenceScore" DECIMAL(5,4);
+ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS "confidenceScore" DECIMAL(5,2);
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS "aiModelVersion" VARCHAR;
 
 -- Farm crops table

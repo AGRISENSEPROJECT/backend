@@ -86,7 +86,8 @@ export class Recommendation {
   @Column({ nullable: true, type: 'varchar' })
   diseasePrediction: string | null;
 
-  @Column({ nullable: true, type: 'decimal', precision: 5, scale: 4 })
+  /** Model returns 0–100 percentages; DECIMAL(5,4) overflowed at values like 60. */
+  @Column({ nullable: true, type: 'decimal', precision: 5, scale: 2 })
   confidenceScore: number | null;
 
   @Column({ nullable: true, type: 'varchar' })
