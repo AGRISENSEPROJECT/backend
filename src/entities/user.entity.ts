@@ -28,19 +28,19 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   password: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   firstName: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   lastName: string;
 
   @Column({ nullable: true, type: 'varchar', unique: true, default: null })
   phoneNumber: string | null;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ nullable: true, unique: true, type: 'varchar' })
   nationalId: string;
 
   @Column({
@@ -66,10 +66,10 @@ export class User {
   @Column({ default: false })
   onboardingCompleted: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   documentType: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   idImageUrl: string;
 
   @Column({
@@ -85,7 +85,7 @@ export class User {
   @Column({ nullable: true, type: 'simple-array' })
   assignedRegions: string[];
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   activeFarmId: string | null;
 
   @Column({ nullable: true, type: 'timestamp' })
@@ -101,22 +101,22 @@ export class User {
   })
   provider: AuthProvider;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   providerId: string;
 
   @Column({ default: false })
   isEmailVerified: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   emailVerificationToken: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'timestamp' })
   emailVerificationExpires: Date;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   resetPasswordToken: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'timestamp' })
   resetPasswordExpires: Date;
 
   @OneToMany(() => Farm, (farm) => farm.user)

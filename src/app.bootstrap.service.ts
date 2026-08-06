@@ -49,6 +49,11 @@ export class AppBootstrapService implements OnApplicationBootstrap {
   }
 
   private async runPendingSqlMigrations() {
+    if (this.configService.get<string>('NODE_ENV') === 'development') {
+      this.logger.log('Skipping SQL migrations in development; relying on TypeORM schema sync.');
+      return;
+    }
+
     await this.dataSource.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         id SERIAL PRIMARY KEY,
@@ -93,18 +98,27 @@ export class AppBootstrapService implements OnApplicationBootstrap {
     const userRepository = this.dataSource.getRepository(User);
     const adminEmail =
       this.configService.get<string>('SEED_ADMIN_EMAIL') ?? 'nibishaka.dev@gmail.com';
-    const adminPassword =
-      this.configService.get<string>('SEED_ADMIN_PASSWORD') ?? 'ChangeMe123!';
+    const adminPassword = this.configService.get<string>('SEED_ADMIN_PASSWORD');
     const firstName = this.configService.get<string>('SEED_ADMIN_FIRST_NAME') ?? 'Nibishaka';
     const lastName = this.configService.get<string>('SEED_ADMIN_LAST_NAME') ?? 'Admin';
 
     const existing = await userRepository.findOne({ where: { email: adminEmail } });
-    const hashedPassword = await bcrypt.hash(adminPassword, 12);
+
+    if (!adminPassword && !existing) {
+      this.logger.warn(
+        `SEED_ADMIN_PASSWORD is not set; skipping admin seed for ${adminEmail}.`,
+      );
+      return;
+    }
+
+    const hashedPassword = adminPassword
+      ? await bcrypt.hash(adminPassword, 12)
+      : null;
 
     if (!existing) {
       const user = userRepository.create({
         email: adminEmail,
-        password: hashedPassword,
+        password: hashedPassword!,
         firstName,
         lastName,
         role: UserRole.ADMIN,
@@ -136,7 +150,7 @@ export class AppBootstrapService implements OnApplicationBootstrap {
       existing.onboardingStep = 3;
       changed = true;
     }
-    if (!existing.password) {
+    if (!existing.password && hashedPassword) {
       existing.password = hashedPassword;
       changed = true;
     }

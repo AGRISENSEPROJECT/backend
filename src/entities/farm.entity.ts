@@ -62,13 +62,13 @@ export class Farm {
   @Column()
   ownerName: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   ownerPhone: string | null;
 
   @Column()
   ownerEmail: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   imageUrl: string | null;
 
   @Column({ default: false })
@@ -77,7 +77,7 @@ export class Farm {
   @Column({ default: false })
   isActive: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   irrigationMethod: string | null;
 
   @Column({ nullable: true, type: 'simple-array' })
