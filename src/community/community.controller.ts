@@ -9,6 +9,9 @@ import {
   Query,
   UseGuards,
   Req,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,8 +21,11 @@ import {
   ApiBody,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CommunityService } from './community.service';
 import {
   CreatePostDto,
@@ -46,11 +52,31 @@ export class CommunityController {
   // ─── Feed ───────────────────────────────────────────────────────────────
 
   @Post('posts')
-  @ApiOperation({ summary: 'Create a text community post' })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create a community post with one cover image' })
   @ApiBody({ type: CreatePostDto })
   @ApiResponse({ status: 201, description: 'Post created' })
-  createPost(@Req() req, @Body() dto: CreatePostDto) {
-    return this.communityService.createPost(req.user, dto.description);
+  createPost(
+    @Req() req,
+    @Body() dto: CreatePostDto,
+    @UploadedFile() image?: Express.Multer.File,
+  ) {
+    if (!image) {
+      throw new BadRequestException(
+        'A cover image is required. Send multipart field "image".',
+      );
+    }
+    return this.communityService.createPost(
+      req.user,
+      dto.description,
+      image,
+    );
   }
 
   @Get('posts')
@@ -76,10 +102,27 @@ export class CommunityController {
   }
 
   @Patch('posts/:id')
-  @ApiOperation({ summary: 'Edit your own post' })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Edit your own post (optional new cover image)' })
   @ApiBody({ type: UpdatePostDto })
-  updatePost(@Req() req, @Param('id') id: string, @Body() dto: UpdatePostDto) {
-    return this.communityService.updatePost(req.user, id, dto.description);
+  updatePost(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: UpdatePostDto,
+    @UploadedFile() image?: Express.Multer.File,
+  ) {
+    return this.communityService.updatePost(
+      req.user,
+      id,
+      dto.description,
+      image,
+    );
   }
 
   @Delete('posts/:id')

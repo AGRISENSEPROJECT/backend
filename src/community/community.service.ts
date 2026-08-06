@@ -25,6 +25,7 @@ import {
 import { MessageReceipt } from '../entities/message-receipt.entity';
 import { NotificationType } from '../entities/notification.entity';
 import { NotificationService } from '../notification/notification.service';
+import { CloudinaryService } from '../auth/cloudinary.service';
 import { CommunityGateway } from './community.gateway';
 
 type AuthorDto = {
@@ -61,6 +62,7 @@ export class CommunityService {
     private receiptRepository: Repository<MessageReceipt>,
     private communityGateway: CommunityGateway,
     private notificationService: NotificationService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   private toAuthor(user?: User | null): AuthorDto | null {
@@ -190,19 +192,29 @@ export class CommunityService {
     });
   }
 
-  async createPost(user: User, description: string) {
+  async createPost(
+    user: User,
+    description: string,
+    image?: Express.Multer.File,
+  ) {
     const trimmed = description?.trim();
     if (!trimmed) {
       throw new BadRequestException('Post description is required');
     }
+    if (!image) {
+      throw new BadRequestException(
+        'A cover image is required for community posts',
+      );
+    }
 
     const hashtags = this.extractHashtags(trimmed);
     const mentionUsernames = this.extractMentions(trimmed);
+    const imageUrl = await this.cloudinaryService.uploadPostImage(image);
 
     const post = this.postRepository.create({
       user,
       description: trimmed,
-      imageUrl: undefined,
+      imageUrl,
       hashtags,
       mentions: mentionUsernames,
     });
@@ -234,7 +246,12 @@ export class CommunityService {
     return serialized;
   }
 
-  async updatePost(user: User, postId: string, description: string) {
+  async updatePost(
+    user: User,
+    postId: string,
+    description: string,
+    image?: Express.Multer.File,
+  ) {
     const trimmed = description?.trim();
     if (!trimmed) {
       throw new BadRequestException('Post description is required');
@@ -252,6 +269,15 @@ export class CommunityService {
     post.description = trimmed;
     post.hashtags = this.extractHashtags(trimmed);
     post.mentions = this.extractMentions(trimmed);
+
+    if (image) {
+      const previousUrl = post.imageUrl;
+      post.imageUrl = await this.cloudinaryService.uploadPostImage(image);
+      if (previousUrl) {
+        await this.cloudinaryService.deleteImage(previousUrl);
+      }
+    }
+
     await this.postRepository.save(post);
 
     const full = await this.loadPost(postId);
@@ -318,7 +344,18 @@ export class CommunityService {
     if (post.user?.id !== user.id) {
       throw new ForbiddenException('You can only delete your own posts');
     }
-    await this.postRepository.remove(post);
+
+    const imageUrl = post.imageUrl;
+
+    // Remove dependent rows first (DB FKs may not all be ON DELETE CASCADE yet)
+    await this.commentRepository.delete({ post: { id: postId } });
+    await this.likeRepository.delete({ post: { id: postId } });
+    await this.reactionRepository.delete({ postId });
+    await this.postRepository.delete(postId);
+
+    if (imageUrl) {
+      await this.cloudinaryService.deleteImage(imageUrl);
+    }
     this.communityGateway.notifyPostDeleted({ id: postId });
     return { deleted: true, id: postId };
   }

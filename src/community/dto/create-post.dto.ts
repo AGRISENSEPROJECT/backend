@@ -21,6 +21,14 @@ export class CreatePostDto {
   @MinLength(1)
   @MaxLength(2000)
   description: string;
+
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    description: 'Single cover image for the post (JPEG/PNG/WebP, max 5MB)',
+  })
+  @IsOptional()
+  image?: any;
 }
 
 export class UpdatePostDto {

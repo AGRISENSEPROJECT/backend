@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -279,8 +280,17 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
   async getProfile(@Req() req: Request) {
+    const user = req.user as any;
     return {
-      user: req.user,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        isEmailVerified: user.isEmailVerified,
+        profileImage: user.profileImage ?? null,
+        phoneNumber: user.phoneNumber ?? null,
+        farmsCount: Array.isArray(user.farms) ? user.farms.length : (user.farmsCount ?? 0),
+      },
     };
   }
 
@@ -302,7 +312,12 @@ export class AuthController {
   @Post('profile/image')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload profile image' })
   @ApiBody({

@@ -16,6 +16,7 @@ import { UserBlock } from '../entities/user-block.entity';
 import { PostReaction } from '../entities/post-reaction.entity';
 import { MessageReceipt } from '../entities/message-receipt.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { NotificationModule } from '../notification/notification.module';
       inject: [ConfigService],
     }),
     NotificationModule,
+    AuthModule,
   ],
   controllers: [CommunityController],
   providers: [CommunityService, CommunityGateway],
