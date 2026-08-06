@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { FarmModule } from './farm/farm.module';
 import { CommunityModule } from './community/community.module';
+import { NotificationModule } from './notification/notification.module';
 import { User } from './entities/user.entity';
 import { Farm } from './entities/farm.entity';
 import { Post } from './entities/post.entity';
@@ -18,7 +19,6 @@ import { Recommendation } from './entities/recommendation.entity';
 import { AdminModule } from './admin/admin.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { RegionalModule } from './regional/regional.module';
-import { NotificationModule } from './notification/notification.module';
 import { PostReport } from './entities/post-report.entity';
 import { ChatMessage } from './entities/chat-message.entity';
 import { Notification } from './entities/notification.entity';
@@ -30,6 +30,12 @@ import { NgoOrganization } from './entities/ngo-organization.entity';
 import { AgriculturalProgram } from './entities/agricultural-program.entity';
 import { GovernmentAdvisory } from './entities/government-advisory.entity';
 import { FarmCrop } from './entities/farm-crop.entity';
+import { Conversation } from './entities/conversation.entity';
+import { ConversationMember } from './entities/conversation-member.entity';
+import { Message } from './entities/message.entity';
+import { UserBlock } from './entities/user-block.entity';
+import { PostReaction } from './entities/post-reaction.entity';
+import { MessageReceipt } from './entities/message-receipt.entity';
 import { PredictionModule } from './prediction/prediction.module';
 import { CommonModule } from './common/common.module';
 import { AppBootstrapService } from './app.bootstrap.service';
@@ -60,10 +66,31 @@ import { AppBootstrapService } from './app.bootstrap.service';
               }),
           ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
           entities: [
-            User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation,
-            PostReport, ChatMessage, Notification, Product, Order,
-            AuditLog, SupplierProfile, NgoOrganization, AgriculturalProgram, GovernmentAdvisory,
+            User,
+            Farm,
+            Post,
+            Comment,
+            Like,
+            SoilScan,
+            PredictionRun,
+            Recommendation,
+            PostReport,
+            ChatMessage,
+            Notification,
+            Product,
+            Order,
+            AuditLog,
+            SupplierProfile,
+            NgoOrganization,
+            AgriculturalProgram,
+            GovernmentAdvisory,
             FarmCrop,
+            Conversation,
+            ConversationMember,
+            Message,
+            UserBlock,
+            PostReaction,
+            MessageReceipt,
           ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
@@ -92,13 +119,13 @@ import { AppBootstrapService } from './app.bootstrap.service';
     AuthModule,
     FarmModule,
     CommunityModule,
+    NotificationModule,
     PredictionModule,
     AdminModule,
     SupplierModule,
     RegionalModule,
-    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppBootstrapService],
 })
-export class AppModule { }
+export class AppModule {}

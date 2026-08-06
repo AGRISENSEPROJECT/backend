@@ -105,10 +105,25 @@ GET  /api/farm/status          # Get registration status (protected)
 
 ### Community
 ```
-POST /api/community/posts       # Create a new post (protected)
-GET  /api/community/posts       # Get all posts (protected)
-POST /api/community/posts/:id/like    # Like/unlike a post (protected)
-POST /api/community/posts/:id/comment # Comment on a post (protected)
+POST   /api/community/posts
+GET    /api/community/posts?page=1&limit=30
+DELETE /api/community/posts/:id
+POST   /api/community/posts/:id/like
+POST   /api/community/posts/:id/comment
+DELETE /api/community/comments/:id
+
+GET    /api/community/users?q=
+GET    /api/community/conversations?type=direct|group
+POST   /api/community/conversations/direct   { userId }
+POST   /api/community/conversations/group    { name, memberIds }
+GET    /api/community/conversations/:id
+GET    /api/community/conversations/:id/messages
+POST   /api/community/conversations/:id/messages  { content }
+POST   /api/community/conversations/:id/read
+
+WS     /community  (auth.token = JWT)
+       events: post:created|liked|unliked|commented|deleted
+               message:new, conversation:updated
 ```
 
 ### Predictions

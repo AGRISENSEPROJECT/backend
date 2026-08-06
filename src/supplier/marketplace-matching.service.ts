@@ -196,7 +196,7 @@ export class MarketplaceMatchingService {
           profile.userId,
           'New Regional Demand Signal',
           `AI recommendations in ${farm.province} may require products you supply. Check demand dashboard.`,
-          NotificationType.ORDER,
+          NotificationType.ORDER_PLACED,
           { province: farm.province, farmId: `anon_${farmId.slice(0, 8)}` },
         );
       }

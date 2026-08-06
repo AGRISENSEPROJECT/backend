@@ -5,16 +5,36 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from './user.entity';
 
+/**
+ * Shared with marketplace/main work. Add new values carefully and
+ * keep migration enums in sync when merging branches.
+ */
 export enum NotificationType {
-  SYSTEM = 'SYSTEM',
-  PREDICTION = 'PREDICTION',
-  COMMUNITY = 'COMMUNITY',
-  FARM = 'FARM',
-  ORDER = 'ORDER',
-  MODERATION = 'MODERATION',
+  SYSTEM = 'system',
+  SUPPLIER_APPROVED = 'supplier_approved',
+  SUPPLIER_REJECTED = 'supplier_rejected',
+  ORDER_PLACED = 'order_placed',
+  ORDER_STATUS = 'order_status',
+  PREDICTION_READY = 'prediction_ready',
+  PREDICTION_FAILED = 'prediction_failed',
+  PAYMENT_UPDATE = 'payment_update',
+  ORGANIZATION_APPROVED = 'organization_approved',
+  ORGANIZATION_REJECTED = 'organization_rejected',
+  WEATHER_ALERT = 'weather_alert',
+  IOT_ALERT = 'iot_alert',
+  MODERATION = 'moderation',
+  // Community
+  COMMUNITY_LIKE = 'community_like',
+  COMMUNITY_COMMENT = 'community_comment',
+  COMMUNITY_REPLY = 'community_reply',
+  COMMUNITY_MENTION = 'community_mention',
+  COMMUNITY_MESSAGE = 'community_message',
+  COMMUNITY_GROUP_INVITE = 'community_group_invite',
 }
 
 @Entity('notifications')
@@ -22,27 +42,29 @@ export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  user: User;
-
+  @Index()
   @Column()
   userId: string;
 
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
   @Column({
-    type: 'enum',
-    enum: NotificationType,
+    type: 'varchar',
+    length: 64,
     default: NotificationType.SYSTEM,
   })
-  type: NotificationType;
+  type: NotificationType | string;
 
   @Column()
   title: string;
 
-  @Column()
+  @Column({ type: 'text' })
   message: string;
 
-  @Column({ nullable: true, type: 'jsonb' })
-  metadata: Record<string, unknown>;
+  @Column({ type: 'jsonb', nullable: true })
+  data: Record<string, unknown> | null;
 
   @Column({ default: false })
   isRead: boolean;

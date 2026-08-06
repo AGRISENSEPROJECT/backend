@@ -1,36 +1,79 @@
-import { Controller, Get, Put, Delete, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Delete,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { Request } from 'express';
+import { User } from '../entities/user.entity';
 import { NotificationService } from './notification.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ListNotificationsQueryDto } from './dto/notification.dto';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
 @Controller('notifications')
-@UseGuards(JwtAuthGuard)
+@UseGuards(AuthGuard('jwt'))
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
+  private getActor(req: Request): User {
+    const user = req.user as User | undefined;
+    if (!user?.id) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    return user;
+  }
+
   @Get()
-  @ApiOperation({ summary: 'Get my notifications' })
-  getNotifications(@Req() req, @Query('page') page?: number, @Query('limit') limit?: number) {
-    return this.notificationService.getUserNotifications(req.user.id, page || 1, limit || 20);
+  @ApiOperation({ summary: 'List my notifications' })
+  @ApiResponse({ status: 200, description: 'Notifications retrieved' })
+  list(@Req() req: Request, @Query() query: ListNotificationsQueryDto) {
+    return this.notificationService.listForUser(this.getActor(req).id, query);
   }
 
-  @Put(':id/read')
-  @ApiOperation({ summary: 'Mark notification as read' })
-  markAsRead(@Req() req, @Param('id') id: string) {
-    return this.notificationService.markAsRead(req.user.id, id);
+  @Get('unread-count')
+  @ApiOperation({ summary: 'Get unread notification count' })
+  getUnreadCount(@Req() req: Request) {
+    return this.notificationService.getUnreadCount(this.getActor(req).id);
   }
 
-  @Put('read-all')
-  @ApiOperation({ summary: 'Mark all notifications as read' })
-  markAllAsRead(@Req() req) {
-    return this.notificationService.markAllAsRead(req.user.id);
+  @Patch('read-all')
+  @ApiOperation({ summary: 'Mark all my notifications as read' })
+  markAllRead(@Req() req: Request) {
+    return this.notificationService.markAllAsRead(this.getActor(req).id);
+  }
+
+  @Delete()
+  @ApiOperation({ summary: 'Clear / delete all my notifications' })
+  clearAll(@Req() req: Request) {
+    return this.notificationService.clearAll(this.getActor(req).id);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete notification' })
-  deleteNotification(@Req() req, @Param('id') id: string) {
-    return this.notificationService.deleteNotification(req.user.id, id);
+  @ApiOperation({ summary: 'Delete one notification' })
+  @ApiParam({ name: 'id', description: 'Notification ID' })
+  deleteOne(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.notificationService.deleteOne(this.getActor(req).id, id);
+  }
+
+  @Patch(':id/read')
+  @ApiOperation({ summary: 'Mark a notification as read' })
+  @ApiParam({ name: 'id', description: 'Notification ID' })
+  markRead(@Req() req: Request, @Param('id', ParseUUIDPipe) id: string) {
+    return this.notificationService.markAsRead(this.getActor(req).id, id);
   }
 }

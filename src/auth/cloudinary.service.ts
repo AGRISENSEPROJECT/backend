@@ -1,17 +1,25 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
+import { readFile } from 'fs/promises';
 
 @Injectable()
 export class CloudinaryService {
-  constructor(private configService: ConfigService) {
-    const cloudName = this.configService.get('CLOUDINARY_CLOUD_NAME');
-    const apiKey = this.configService.get('CLOUDINARY_API_KEY');
-    const apiSecret = this.configService.get('CLOUDINARY_API_SECRET');
+  private readonly logger = new Logger(CloudinaryService.name);
+  private readonly configured: boolean;
 
-    if (!cloudName || !apiKey || !apiSecret) {
-      console.warn('⚠️  Cloudinary credentials not configured. Image upload will fail.');
+  constructor(private configService: ConfigService) {
+    const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME')?.trim();
+    const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY')?.trim();
+    const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET')?.trim();
+
+    this.configured = !!(cloudName && apiKey && apiSecret);
+
+    if (!this.configured) {
+      this.logger.warn(
+        'Cloudinary credentials not configured. Image upload will fail.',
+      );
     } else {
       cloudinary.config({
         cloud_name: cloudName,
@@ -19,89 +27,140 @@ export class CloudinaryService {
         api_secret: apiSecret,
         secure: true,
       });
-      console.log('✅ Cloudinary configured successfully');
+      this.logger.log('Cloudinary configured successfully');
     }
   }
 
-  async uploadImage(file: Express.Multer.File): Promise<string> {
-    // Check if Cloudinary is configured
-    const cloudName = this.configService.get('CLOUDINARY_CLOUD_NAME');
-    if (!cloudName) {
-      throw new BadRequestException('Image upload service not configured. Please contact administrator.');
+  private async getFileBuffer(file: Express.Multer.File): Promise<Buffer> {
+    if (file.buffer?.length) {
+      return file.buffer;
+    }
+    if (file.path) {
+      return readFile(file.path);
+    }
+    throw new BadRequestException('No file provided');
+  }
+
+  async uploadImage(
+    file: Express.Multer.File,
+    folder = 'agrisense/profiles',
+    options?: {
+      width?: number;
+      height?: number;
+      crop?: string;
+      gravity?: string;
+    },
+  ): Promise<string> {
+    if (!this.configured) {
+      throw new BadRequestException(
+        'Image upload service not configured. Please contact administrator.',
+      );
     }
 
-    // Validate file
-    if (!file || !file.buffer) {
+    if (!file) {
       throw new BadRequestException('No file provided');
     }
 
-    // Check file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('File size too large. Maximum size is 5MB.');
+      throw new BadRequestException(
+        'File size too large. Maximum size is 5MB.',
+      );
     }
 
-    // Check file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Invalid file type. Only JPEG, PNG, and WebP images are allowed.');
+      throw new BadRequestException(
+        'Invalid file type. Only JPEG, PNG, and WebP images are allowed.',
+      );
     }
+
+    const buffer = await this.getFileBuffer(file);
+    const width = options?.width ?? 500;
+    const height = options?.height ?? 500;
+    const crop = options?.crop ?? 'fill';
+    const gravity = options?.gravity ?? 'auto';
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Upload timeout - please try again'));
-      }, 30000); // 30 second timeout
+      }, 30000);
 
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: 'agrisense/profiles',
+          folder,
           transformation: [
-            { width: 500, height: 500, crop: 'fill', gravity: 'face' },
+            { width, height, crop, gravity },
             { quality: 'auto', fetch_format: 'auto' },
           ],
           resource_type: 'image',
-          timeout: 60000, // 60 seconds
+          timeout: 60000,
         },
         (error, result) => {
           clearTimeout(timeout);
-          
+
           if (error) {
-            console.error('Cloudinary upload error:', error);
-            return reject(new Error(`Upload failed: ${error.message}`));
+            this.logger.error(
+              `Cloudinary upload error: ${error.message} (http=${(error as any).http_code || 'n/a'})`,
+            );
+            const code = (error as any).http_code;
+            if (code === 401 || code === 403) {
+              return reject(
+                new BadRequestException(
+                  'Cloudinary rejected the upload (401/403). Check CLOUDINARY_CLOUD_NAME, API_KEY, and API_SECRET match the same product environment, regenerate the API secret in the Cloudinary console, and confirm the account can upload in Media Library.',
+                ),
+              );
+            }
+            return reject(
+              new BadRequestException(
+                `Upload failed: ${error.message || 'unknown error'}`,
+              ),
+            );
           }
-          
+
           if (!result) {
-            return reject(new Error('Upload failed - no result returned'));
+            return reject(new BadRequestException('Upload failed - no result returned'));
           }
-          
-          console.log('✅ Image uploaded successfully:', result.secure_url);
+
+          this.logger.log(`Image uploaded successfully: ${result.secure_url}`);
           resolve(result.secure_url);
         },
       );
 
       try {
-        const stream = Readable.from(file.buffer);
-        stream.pipe(uploadStream);
-      } catch (error) {
+        Readable.from(buffer).pipe(uploadStream);
+      } catch {
         clearTimeout(timeout);
-        reject(new Error('Failed to process image file'));
+        reject(new BadRequestException('Failed to process image file'));
       }
+    });
+  }
+
+  /** Cover image for community posts (single landscape image). */
+  uploadPostImage(file: Express.Multer.File): Promise<string> {
+    return this.uploadImage(file, 'agrisense/posts', {
+      width: 1200,
+      height: 675,
+      crop: 'fill',
+      gravity: 'auto',
     });
   }
 
   async deleteImage(imageUrl: string): Promise<void> {
     try {
-      // Extract public_id from URL
       const parts = imageUrl.split('/');
       const filename = parts[parts.length - 1].split('.')[0];
-      const folder = parts[parts.length - 2];
-      const publicId = `${folder}/${filename}`;
+      const folderParts = parts.slice(parts.indexOf('upload') + 2, -1);
+      // Drop version segment like v1234567890
+      const withoutVersion = folderParts.filter((p) => !/^v\d+$/.test(p));
+      const publicId = [...withoutVersion, filename].join('/');
 
       await cloudinary.uploader.destroy(publicId);
-      console.log('✅ Image deleted successfully:', publicId);
+      this.logger.log(`Image deleted successfully: ${publicId}`);
     } catch (error) {
-      console.error('Failed to delete image from Cloudinary:', error);
-      // Don't throw error - deletion failure shouldn't block the operation
+      this.logger.error(
+        `Failed to delete image from Cloudinary: ${(error as Error).message}`,
+      );
     }
   }
 }
