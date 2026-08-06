@@ -15,7 +15,9 @@ import { Server, Socket } from 'socket.io';
   cors: { origin: '*' },
   namespace: '/community',
 })
-export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class CommunityGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(CommunityGateway.name);
   private readonly userSockets = new Map<string, Set<string>>();
 
@@ -28,7 +30,10 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
     try {
       const token =
         (client.handshake.auth?.token as string) ||
-        (client.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '') as string);
+        (client.handshake.headers?.authorization?.replace(
+          /^Bearer\s+/i,
+          '',
+        ) as string);
 
       if (!token) {
         client.disconnect(true);
@@ -50,6 +55,7 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
       }
       this.userSockets.get(userId)!.add(client.id);
       client.join(`user:${userId}`);
+      this.broadcastPresence(userId, true);
       this.logger.debug(`WS connected user=${userId} socket=${client.id}`);
     } catch (error) {
       this.logger.warn(`WS auth failed: ${(error as Error).message}`);
@@ -64,7 +70,20 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
     sockets?.delete(client.id);
     if (sockets && sockets.size === 0) {
       this.userSockets.delete(userId);
+      this.broadcastPresence(userId, false);
     }
+  }
+
+  isUserOnline(userId: string) {
+    return (this.userSockets.get(userId)?.size || 0) > 0;
+  }
+
+  getOnlineUserIds() {
+    return Array.from(this.userSockets.keys());
+  }
+
+  private broadcastPresence(userId: string, online: boolean) {
+    this.server.emit('presence:update', { userId, online });
   }
 
   @SubscribeMessage('ping')
@@ -92,8 +111,46 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
     return { ok: true };
   }
 
+  @SubscribeMessage('typing:start')
+  handleTypingStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { conversationId?: string },
+  ) {
+    const userId = client.data?.userId as string | undefined;
+    if (!userId || !body?.conversationId) return { ok: false };
+    this.server
+      .to(`conversation:${body.conversationId}`)
+      .except(client.id)
+      .emit('typing:start', {
+        conversationId: body.conversationId,
+        userId,
+      });
+    return { ok: true };
+  }
+
+  @SubscribeMessage('typing:stop')
+  handleTypingStop(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { conversationId?: string },
+  ) {
+    const userId = client.data?.userId as string | undefined;
+    if (!userId || !body?.conversationId) return { ok: false };
+    this.server
+      .to(`conversation:${body.conversationId}`)
+      .except(client.id)
+      .emit('typing:stop', {
+        conversationId: body.conversationId,
+        userId,
+      });
+    return { ok: true };
+  }
+
   notifyPostCreated(post: any) {
     this.server.emit('post:created', post);
+  }
+
+  notifyPostUpdated(post: any) {
+    this.server.emit('post:updated', post);
   }
 
   notifyPostLiked(payload: any) {
@@ -104,8 +161,20 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.server.emit('post:unliked', payload);
   }
 
+  notifyPostReaction(payload: any) {
+    this.server.emit('post:reaction', payload);
+  }
+
   notifyPostCommented(comment: any) {
     this.server.emit('post:commented', comment);
+  }
+
+  notifyCommentUpdated(comment: any) {
+    this.server.emit('comment:updated', comment);
+  }
+
+  notifyCommentDeleted(payload: { id: string; postId?: string }) {
+    this.server.emit('comment:deleted', payload);
   }
 
   notifyPostDeleted(payload: { id: string }) {
@@ -120,6 +189,41 @@ export class CommunityGateway implements OnGatewayConnection, OnGatewayDisconnec
         conversationId: message.conversationId,
         lastMessage: message,
       });
+    }
+  }
+
+  notifyMessageDeleted(payload: any, memberUserIds: string[]) {
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit('message:deleted', payload);
+    for (const userId of memberUserIds) {
+      this.server.to(`user:${userId}`).emit('message:deleted', payload);
+    }
+  }
+
+  notifyMessagesRead(payload: any, memberUserIds: string[]) {
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit('message:read', payload);
+    for (const userId of memberUserIds) {
+      this.server.to(`user:${userId}`).emit('message:read', payload);
+    }
+  }
+
+  notifyConversationUpdated(conversation: any, memberUserIds: string[]) {
+    for (const userId of memberUserIds) {
+      this.server
+        .to(`user:${userId}`)
+        .emit('conversation:updated', conversation);
+    }
+  }
+
+  notifyConversationDeleted(
+    payload: { id: string },
+    memberUserIds: string[],
+  ) {
+    for (const userId of memberUserIds) {
+      this.server.to(`user:${userId}`).emit('conversation:deleted', payload);
     }
   }
 }

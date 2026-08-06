@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -22,10 +23,17 @@ import { AuthGuard } from '@nestjs/passport';
 import { CommunityService } from './community.service';
 import {
   CreatePostDto,
+  UpdatePostDto,
   CreateCommentDto,
+  UpdateCommentDto,
+  ReactPostDto,
   CreateDirectConversationDto,
   CreateGroupConversationDto,
+  UpdateGroupDto,
+  GroupMembersDto,
   SendMessageDto,
+  MuteConversationDto,
+  BlockUserDto,
 } from './dto/create-post.dto';
 
 @ApiTags('Community')
@@ -46,19 +54,32 @@ export class CommunityController {
   }
 
   @Get('posts')
-  @ApiOperation({ summary: 'List community posts (paginated)' })
+  @ApiOperation({ summary: 'List / search community posts' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'q', required: false, description: 'Search text' })
+  @ApiQuery({ name: 'hashtag', required: false })
   getAllPosts(
     @Req() req,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('q') q?: string,
+    @Query('hashtag') hashtag?: string,
   ) {
     return this.communityService.getAllPosts(
       req.user.id,
       page ? Number(page) : 1,
       limit ? Number(limit) : 30,
+      q,
+      hashtag,
     );
+  }
+
+  @Patch('posts/:id')
+  @ApiOperation({ summary: 'Edit your own post' })
+  @ApiBody({ type: UpdatePostDto })
+  updatePost(@Req() req, @Param('id') id: string, @Body() dto: UpdatePostDto) {
+    return this.communityService.updatePost(req.user, id, dto.description);
   }
 
   @Delete('posts/:id')
@@ -68,6 +89,12 @@ export class CommunityController {
     return this.communityService.deletePost(req.user, id);
   }
 
+  @Post('posts/:id/share')
+  @ApiOperation({ summary: 'Get a share payload for a post' })
+  sharePost(@Req() req, @Param('id') id: string) {
+    return this.communityService.sharePost(req.user, id);
+  }
+
   @Post('posts/:id/like')
   @ApiOperation({ summary: 'Like or unlike a post' })
   @ApiParam({ name: 'id' })
@@ -75,8 +102,15 @@ export class CommunityController {
     return this.communityService.likePost(req.user, id);
   }
 
+  @Post('posts/:id/react')
+  @ApiOperation({ summary: 'Toggle a reaction on a post' })
+  @ApiBody({ type: ReactPostDto })
+  reactPost(@Req() req, @Param('id') id: string, @Body() dto: ReactPostDto) {
+    return this.communityService.reactToPost(req.user, id, dto.type || 'like');
+  }
+
   @Post('posts/:id/comment')
-  @ApiOperation({ summary: 'Comment on a post' })
+  @ApiOperation({ summary: 'Comment or reply on a post' })
   @ApiParam({ name: 'id' })
   @ApiBody({ type: CreateCommentDto })
   commentOnPost(
@@ -84,7 +118,23 @@ export class CommunityController {
     @Param('id') id: string,
     @Body() dto: CreateCommentDto,
   ) {
-    return this.communityService.commentOnPost(req.user, id, dto.content);
+    return this.communityService.commentOnPost(
+      req.user,
+      id,
+      dto.content,
+      dto.parentId,
+    );
+  }
+
+  @Patch('comments/:id')
+  @ApiOperation({ summary: 'Edit your own comment' })
+  @ApiBody({ type: UpdateCommentDto })
+  updateComment(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: UpdateCommentDto,
+  ) {
+    return this.communityService.updateComment(req.user, id, dto.content);
   }
 
   @Delete('comments/:id')
@@ -94,6 +144,27 @@ export class CommunityController {
     return this.communityService.deleteComment(req.user, id);
   }
 
+  // ─── Blocks ─────────────────────────────────────────────────────────────
+
+  @Get('blocks')
+  @ApiOperation({ summary: 'List users you blocked' })
+  listBlocks(@Req() req) {
+    return this.communityService.listBlockedUsers(req.user);
+  }
+
+  @Post('blocks')
+  @ApiOperation({ summary: 'Block a user' })
+  @ApiBody({ type: BlockUserDto })
+  blockUser(@Req() req, @Body() dto: BlockUserDto) {
+    return this.communityService.blockUser(req.user, dto.userId);
+  }
+
+  @Delete('blocks/:userId')
+  @ApiOperation({ summary: 'Unblock a user' })
+  unblockUser(@Req() req, @Param('userId') userId: string) {
+    return this.communityService.unblockUser(req.user, userId);
+  }
+
   // ─── Users / messaging ─────────────────────────────────────────────────
 
   @Get('users')
@@ -101,6 +172,12 @@ export class CommunityController {
   @ApiQuery({ name: 'q', required: false })
   searchUsers(@Req() req, @Query('q') q?: string) {
     return this.communityService.searchUsers(req.user.id, q);
+  }
+
+  @Get('presence')
+  @ApiOperation({ summary: 'List currently online user IDs' })
+  getPresence() {
+    return { onlineUserIds: this.communityService.getOnlineUserIds() };
   }
 
   @Get('conversations')
@@ -134,6 +211,77 @@ export class CommunityController {
     return this.communityService.getConversation(req.user, id);
   }
 
+  @Patch('conversations/:id')
+  @ApiOperation({ summary: 'Rename a group conversation' })
+  @ApiBody({ type: UpdateGroupDto })
+  renameGroup(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: UpdateGroupDto,
+  ) {
+    if (!dto.name) {
+      return this.communityService.getConversation(req.user, id);
+    }
+    return this.communityService.renameGroup(req.user, id, dto.name);
+  }
+
+  @Post('conversations/:id/members')
+  @ApiOperation({ summary: 'Add members to a group' })
+  @ApiBody({ type: GroupMembersDto })
+  addMembers(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: GroupMembersDto,
+  ) {
+    return this.communityService.addGroupMembers(
+      req.user,
+      id,
+      dto.memberIds,
+    );
+  }
+
+  @Delete('conversations/:id/members')
+  @ApiOperation({ summary: 'Remove members from a group' })
+  @ApiBody({ type: GroupMembersDto })
+  removeMembers(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: GroupMembersDto,
+  ) {
+    return this.communityService.removeGroupMembers(
+      req.user,
+      id,
+      dto.memberIds,
+    );
+  }
+
+  @Post('conversations/:id/leave')
+  @ApiOperation({ summary: 'Leave a conversation' })
+  leave(@Req() req, @Param('id') id: string) {
+    return this.communityService.leaveConversation(req.user, id);
+  }
+
+  @Delete('conversations/:id')
+  @ApiOperation({ summary: 'Delete a group (creator only)' })
+  deleteGroup(@Req() req, @Param('id') id: string) {
+    return this.communityService.deleteGroup(req.user, id);
+  }
+
+  @Post('conversations/:id/mute')
+  @ApiOperation({ summary: 'Mute or unmute a conversation' })
+  @ApiBody({ type: MuteConversationDto })
+  mute(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: MuteConversationDto,
+  ) {
+    return this.communityService.muteConversation(
+      req.user,
+      id,
+      dto.muted !== false,
+    );
+  }
+
   @Get('conversations/:id/messages')
   @ApiOperation({ summary: 'List messages in a conversation' })
   @ApiQuery({ name: 'page', required: false })
@@ -163,8 +311,14 @@ export class CommunityController {
     return this.communityService.sendMessage(req.user, id, dto.content);
   }
 
+  @Delete('messages/:id')
+  @ApiOperation({ summary: 'Soft-delete your own message' })
+  deleteMessage(@Req() req, @Param('id') id: string) {
+    return this.communityService.deleteMessage(req.user, id);
+  }
+
   @Post('conversations/:id/read')
-  @ApiOperation({ summary: 'Mark conversation as read' })
+  @ApiOperation({ summary: 'Mark conversation as read (per-message receipts)' })
   markRead(@Req() req, @Param('id') id: string) {
     return this.communityService.markConversationRead(req.user, id);
   }

@@ -12,6 +12,10 @@ import { User } from '../entities/user.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { ConversationMember } from '../entities/conversation-member.entity';
 import { Message } from '../entities/message.entity';
+import { UserBlock } from '../entities/user-block.entity';
+import { PostReaction } from '../entities/post-reaction.entity';
+import { MessageReceipt } from '../entities/message-receipt.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -23,6 +27,9 @@ import { Message } from '../entities/message.entity';
       Conversation,
       ConversationMember,
       Message,
+      UserBlock,
+      PostReaction,
+      MessageReceipt,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -31,6 +38,7 @@ import { Message } from '../entities/message.entity';
       }),
       inject: [ConfigService],
     }),
+    NotificationModule,
   ],
   controllers: [CommunityController],
   providers: [CommunityService, CommunityGateway],
