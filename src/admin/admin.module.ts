@@ -12,6 +12,7 @@ import { SupplierProfile } from '../entities/supplier-profile.entity';
 import { NgoOrganization } from '../entities/ngo-organization.entity';
 import { AuditLog } from '../entities/audit-log.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { WaitlistModule } from '../waitlist/waitlist.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { NotificationModule } from '../notification/notification.module';
       SupplierProfile, NgoOrganization, AuditLog,
     ]),
     NotificationModule,
+    WaitlistModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],
