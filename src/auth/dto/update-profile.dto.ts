@@ -1,18 +1,8 @@
-import { IsString, IsOptional, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsStrongPassword } from '../../common/validators/password.validator';
 
 export class UpdateProfileDto {
-  @ApiProperty({
-    example: 'john_doe',
-    description: 'Username',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @MinLength(3)
-  @MaxLength(30)
-  username?: string;
-
   @ApiProperty({
     example: '+250788123456',
     description: 'Phone number',
@@ -22,6 +12,16 @@ export class UpdateProfileDto {
   @IsString()
   @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Invalid phone number format' })
   phoneNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 }
 
 export class ChangePasswordDto {
@@ -32,11 +32,8 @@ export class ChangePasswordDto {
   @IsString()
   currentPassword: string;
 
-  @ApiProperty({
-    example: 'NewPassword123!',
-    description: 'New password (min 8 characters)',
-  })
+  @ApiProperty({ example: 'NewPassword1!' })
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @IsStrongPassword()
   newPassword: string;
 }

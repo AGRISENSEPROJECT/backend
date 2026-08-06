@@ -1,203 +1,178 @@
-import { IsString, IsNumber, IsEnum, IsEmail, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsEmail, IsOptional, IsArray } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { SoilType } from '../../entities/farm.entity';
 
 export class CreateFarmDto {
-  @ApiProperty({
-    description: 'Farm name',
-    example: 'Green Valley Farm',
-  })
+  @ApiProperty({ example: 'Green Valley Farm' })
   @IsString()
   name: string;
 
-  @ApiProperty({
-    description: 'Farm size in acres',
-    example: 25.5,
-  })
+  @ApiProperty({ example: 25.5 })
   @IsNumber()
   size: number;
 
-  @ApiProperty({
-    description: 'Type of soil',
-    example: 'loamy',
-    enum: SoilType,
-  })
+  @ApiProperty({ example: 'loamy', enum: SoilType })
   @IsEnum(SoilType)
   soilType: SoilType;
 
-  @ApiProperty({
-    description: 'Country where the farm is located',
-    example: 'Rwanda',
-  })
+  @ApiProperty({ example: 'Rwanda' })
   @IsString()
   country: string;
 
-  @ApiProperty({
-    description: 'Province where the farm is located',
-    example: 'Kigali City',
-  })
+  @ApiProperty({ example: 'Kigali City' })
   @IsString()
   province: string;
 
-  @ApiProperty({
-    description: 'District where the farm is located',
-    example: 'Gasabo',
-  })
+  @ApiProperty({ example: 'Gasabo' })
   @IsString()
   district: string;
 
-  @ApiProperty({
-    description: 'Sector where the farm is located',
-    example: 'Remera',
-  })
+  @ApiProperty({ example: 'Remera' })
   @IsString()
   sector: string;
 
-  @ApiProperty({
-    description: 'Cell where the farm is located',
-    example: 'Rukiri I',
-  })
+  @ApiProperty({ example: 'Rukiri I' })
   @IsString()
   cell: string;
 
-  @ApiProperty({
-    description: 'Village where the farm is located',
-    example: 'Amahoro',
-  })
+  @ApiProperty({ example: 'Amahoro' })
   @IsString()
   village: string;
 
-  @ApiProperty({
-    description: 'Farm owner full name',
-    example: 'John Doe',
-  })
+  @ApiProperty({ example: 'John Doe' })
   @IsString()
   ownerName: string;
 
-  @ApiProperty({
-    description: 'Farm owner phone number',
-    example: '+250788123456',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   ownerPhone?: string;
 
-  @ApiProperty({
-    description: 'Farm owner email address',
-    example: 'owner@example.com',
-  })
+  @ApiProperty({ example: 'owner@example.com' })
   @IsEmail()
   ownerEmail: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  irrigationMethod?: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  cropHistory?: string[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  farmingPractices?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  soilInformation?: string;
 }
 
 export class UpdateFarmDto {
-  @ApiProperty({
-    description: 'Farm name',
-    example: 'Green Valley Farm',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiProperty({
-    description: 'Farm size in acres',
-    example: 25.5,
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()
   size?: number;
 
-  @ApiProperty({
-    description: 'Type of soil',
-    example: 'loamy',
-    enum: SoilType,
-    required: false,
-  })
+  @ApiProperty({ required: false, enum: SoilType })
   @IsOptional()
   @IsEnum(SoilType)
   soilType?: SoilType;
 
-  @ApiProperty({
-    description: 'Country where the farm is located',
-    example: 'Rwanda',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   country?: string;
 
-  @ApiProperty({
-    description: 'Province where the farm is located',
-    example: 'Kigali City',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   province?: string;
 
-  @ApiProperty({
-    description: 'District where the farm is located',
-    example: 'Gasabo',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   district?: string;
 
-  @ApiProperty({
-    description: 'Sector where the farm is located',
-    example: 'Remera',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   sector?: string;
 
-  @ApiProperty({
-    description: 'Cell where the farm is located',
-    example: 'Rukiri I',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   cell?: string;
 
-  @ApiProperty({
-    description: 'Village where the farm is located',
-    example: 'Amahoro',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   village?: string;
 
-  @ApiProperty({
-    description: 'Farm owner full name',
-    example: 'John Doe',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   ownerName?: string;
 
-  @ApiProperty({
-    description: 'Farm owner phone number',
-    example: '+250788123456',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   ownerPhone?: string;
 
-  @ApiProperty({
-    description: 'Farm owner email address',
-    example: 'owner@example.com',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsEmail()
   ownerEmail?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  irrigationMethod?: string;
+
+  @ApiProperty({ required: false, type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  cropHistory?: string[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  farmingPractices?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  soilInformation?: string;
 }

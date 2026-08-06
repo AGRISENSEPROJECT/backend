@@ -53,14 +53,41 @@ export class Farm {
   @Column()
   village: string;
 
+  @Column({ nullable: true, type: 'decimal', precision: 10, scale: 7 })
+  latitude: number | null;
+
+  @Column({ nullable: true, type: 'decimal', precision: 10, scale: 7 })
+  longitude: number | null;
+
   @Column()
   ownerName: string;
 
   @Column({ nullable: true })
-  ownerPhone: string;
+  ownerPhone: string | null;
 
   @Column()
   ownerEmail: string;
+
+  @Column({ nullable: true })
+  imageUrl: string | null;
+
+  @Column({ default: false })
+  isArchived: boolean;
+
+  @Column({ default: false })
+  isActive: boolean;
+
+  @Column({ nullable: true })
+  irrigationMethod: string | null;
+
+  @Column({ nullable: true, type: 'simple-array' })
+  cropHistory: string[] | null;
+
+  @Column({ nullable: true, type: 'text' })
+  farmingPractices: string | null;
+
+  @Column({ nullable: true, type: 'text' })
+  soilInformation: string | null;
 
   @ManyToOne(() => User, (user) => user.farms, { onDelete: 'CASCADE' })
   @JoinColumn()
@@ -68,6 +95,9 @@ export class Farm {
 
   @Column()
   userId: string;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  archivedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

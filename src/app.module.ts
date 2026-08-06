@@ -15,7 +15,24 @@ import { Like } from './entities/like.entity';
 import { SoilScan } from './entities/soil-scan.entity';
 import { PredictionRun } from './entities/prediction-run.entity';
 import { Recommendation } from './entities/recommendation.entity';
+import { AdminModule } from './admin/admin.module';
+import { SupplierModule } from './supplier/supplier.module';
+import { RegionalModule } from './regional/regional.module';
+import { NotificationModule } from './notification/notification.module';
+import { PostReport } from './entities/post-report.entity';
+import { ChatMessage } from './entities/chat-message.entity';
+import { Notification } from './entities/notification.entity';
+import { Product } from './entities/product.entity';
+import { Order } from './entities/order.entity';
+import { AuditLog } from './entities/audit-log.entity';
+import { SupplierProfile } from './entities/supplier-profile.entity';
+import { NgoOrganization } from './entities/ngo-organization.entity';
+import { AgriculturalProgram } from './entities/agricultural-program.entity';
+import { GovernmentAdvisory } from './entities/government-advisory.entity';
+import { FarmCrop } from './entities/farm-crop.entity';
 import { PredictionModule } from './prediction/prediction.module';
+import { CommonModule } from './common/common.module';
+import { AppBootstrapService } from './app.bootstrap.service';
 
 @Module({
   imports: [
@@ -35,14 +52,19 @@ import { PredictionModule } from './prediction/prediction.module';
           ...(databaseUrl
             ? { url: databaseUrl }
             : {
-                host: configService.get<string>('DATABASE_HOST'),
+                host: configService.get<string>('DATABASE_HOST') || 'localhost',
                 port: databasePort,
-                username: configService.get<string>('DATABASE_USERNAME'),
-                password: configService.get<string>('DATABASE_PASSWORD'),
-                database: configService.get<string>('DATABASE_NAME'),
+                username: configService.get<string>('DATABASE_USERNAME') || 'postgres',
+                password: configService.get<string>('DATABASE_PASSWORD') || 'postgres123',
+                database: configService.get<string>('DATABASE_NAME') || 'agrisense',
               }),
           ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
-          entities: [User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation],
+          entities: [
+            User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation,
+            PostReport, ChatMessage, Notification, Product, Order,
+            AuditLog, SupplierProfile, NgoOrganization, AgriculturalProgram, GovernmentAdvisory,
+            FarmCrop,
+          ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
         };
@@ -66,12 +88,17 @@ import { PredictionModule } from './prediction/prediction.module';
         limit: 100,
       },
     ]),
+    CommonModule,
     AuthModule,
     FarmModule,
     CommunityModule,
     PredictionModule,
+    AdminModule,
+    SupplierModule,
+    RegionalModule,
+    NotificationModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, AppBootstrapService],
 })
 export class AppModule { }

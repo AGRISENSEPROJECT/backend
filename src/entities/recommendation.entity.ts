@@ -12,8 +12,13 @@ import { PredictionRun } from './prediction-run.entity';
 
 export enum RecommendationType {
   CROP = 'crop',
+  SEED = 'seed',
   FERTILIZER = 'fertilizer',
+  PESTICIDE = 'pesticide',
+  HERBICIDE = 'herbicide',
   IRRIGATION = 'irrigation',
+  EQUIPMENT = 'equipment',
+  SOIL_IMPROVEMENT = 'soil_improvement',
   DISEASE = 'disease',
   WEATHER = 'weather',
   GENERAL = 'general',
@@ -65,6 +70,27 @@ export class Recommendation {
 
   @Column({ default: false })
   isPrimary: boolean;
+
+  @Column({ nullable: true })
+  cropType: string | null;
+
+  @Column({ nullable: true })
+  growingSeason: string | null;
+
+  @Column({ nullable: true })
+  soilType: string | null;
+
+  @Column({ nullable: true, type: 'jsonb' })
+  weatherConditions: Record<string, unknown> | null;
+
+  @Column({ nullable: true })
+  diseasePrediction: string | null;
+
+  @Column({ nullable: true, type: 'decimal', precision: 5, scale: 4 })
+  confidenceScore: number | null;
+
+  @Column({ nullable: true })
+  aiModelVersion: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

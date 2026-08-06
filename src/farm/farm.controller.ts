@@ -8,19 +8,32 @@ import {
   UseGuards,
   Req,
   Param,
+  Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiParam, ApiConsumes, ApiResponse } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { FarmService } from './farm.service';
+import { FarmCropService } from './farm-crop.service';
 import { CreateFarmDto, UpdateFarmDto } from './dto/create-farm.dto';
+import { CreateFarmCropDto, UpdateFarmCropDto } from './dto/farm-crop.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @ApiBearerAuth()
 @ApiTags('Farm Management')
 @Controller('farms')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.FARMER)
 export class FarmController {
-  constructor(private farmService: FarmService) {}
+  constructor(
+    private farmService: FarmService,
+    private farmCropService: FarmCropService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new farm with complete information' })
@@ -105,6 +118,12 @@ export class FarmController {
       throw new Error('User not authenticated');
     }
     return this.farmService.getAllFarms(userId);
+  }
+
+  @Get('archived/list')
+  @ApiOperation({ summary: 'List archived farms' })
+  async getArchivedFarms(@Req() req: Request) {
+    return this.farmService.getAllFarms((req.user as any).id, true);
   }
 
   @Get(':farmId')
@@ -202,5 +221,63 @@ export class FarmController {
       throw new Error('User not authenticated');
     }
     return this.farmService.deleteFarm(userId, farmId);
+  }
+
+  @Put(':farmId/archive')
+  @ApiOperation({ summary: 'Archive farm (soft delete)' })
+  async archiveFarm(@Req() req: Request, @Param('farmId') farmId: string) {
+    return this.farmService.archiveFarm((req.user as any).id, farmId);
+  }
+
+  @Put(':farmId/restore')
+  @ApiOperation({ summary: 'Restore archived farm' })
+  async restoreFarm(@Req() req: Request, @Param('farmId') farmId: string) {
+    return this.farmService.restoreFarm((req.user as any).id, farmId);
+  }
+
+  @Put(':farmId/active')
+  @ApiOperation({ summary: 'Set active farm' })
+  async setActiveFarm(@Req() req: Request, @Param('farmId') farmId: string) {
+    return this.farmService.setActiveFarm((req.user as any).id, farmId);
+  }
+
+  @Post(':farmId/image')
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload farm image' })
+  async uploadFarmImage(
+    @Req() req: Request,
+    @Param('farmId') farmId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.farmService.uploadFarmImage((req.user as any).id, farmId, file);
+  }
+
+  @Post(':farmId/crops')
+  @ApiOperation({ summary: 'Record crop to be planted' })
+  recordCrop(@Req() req: Request, @Param('farmId') farmId: string, @Body() dto: CreateFarmCropDto) {
+    return this.farmCropService.recordCrop((req.user as any).id, farmId, dto);
+  }
+
+  @Get(':farmId/crops')
+  @ApiOperation({ summary: 'List crops for a farm' })
+  getFarmCrops(@Req() req: Request, @Param('farmId') farmId: string) {
+    return this.farmCropService.getFarmCrops((req.user as any).id, farmId);
+  }
+
+  @Put(':farmId/crops/:cropId')
+  @ApiOperation({ summary: 'Update crop record (status, harvest dates)' })
+  updateCrop(
+    @Req() req: Request,
+    @Param('farmId') farmId: string,
+    @Param('cropId') cropId: string,
+    @Body() dto: UpdateFarmCropDto,
+  ) {
+    return this.farmCropService.updateCrop((req.user as any).id, farmId, cropId, dto);
+  }
+
+  @Delete(':farmId/crops/:cropId')
+  deleteCrop(@Req() req: Request, @Param('farmId') farmId: string, @Param('cropId') cropId: string) {
+    return this.farmCropService.deleteCrop((req.user as any).id, farmId, cropId);
   }
 }

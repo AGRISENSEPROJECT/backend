@@ -33,7 +33,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
     const socialRegisterDto = {
       email: emails[0].value,
-      username: `${name.givenName}_${name.familyName}`.toLowerCase(),
       provider: 'google',
       providerId: id,
       firstName: name.givenName,
