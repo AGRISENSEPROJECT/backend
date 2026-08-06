@@ -1,0 +1,19 @@
+---
+description: Require explicit user approval before any VPS deploy or rsync
+alwaysApply: true
+---
+
+# No deploy without approval
+
+Never deploy, rsync, SSH-apply migrations, rebuild containers, or otherwise mutate the production/VPS server unless the user **explicitly asks** or **clearly approves** that deploy step in the current conversation.
+
+This includes:
+- `rsync` / `scp` to the VPS
+- `docker compose up/build/restart` on the VPS
+- remote DB migrations
+- nginx reload/config changes on the VPS
+- GitHub Actions deploy triggers meant to update production
+
+Local coding, commits (when asked), and read-only checks (e.g. `curl` health, reading logs) are fine.
+
+If a fix needs production, say so and wait for approval before touching the server.

@@ -1,39 +1,54 @@
 import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    CreateDateColumn,
-    UpdateDateColumn,
-    ManyToOne,
-    OneToMany,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Comment } from './comment.entity';
 import { Like } from './like.entity';
+import { PostReaction } from './post-reaction.entity';
 
 @Entity('posts')
 export class Post {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({ nullable: true })
-    description: string;
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  title: string | null;
 
-    @Column({ nullable: true })
-    imageUrl: string;
+  @Column({ nullable: true })
+  description: string;
 
-    @ManyToOne(() => User, (user) => user.posts)
-    user: User;
+  @Column({ nullable: true })
+  imageUrl: string;
 
-    @OneToMany(() => Comment, (comment) => comment.post)
-    comments: Comment[];
+  @Column({ type: 'jsonb', nullable: true, default: null })
+  hashtags: string[] | null;
 
-    @OneToMany(() => Like, (like) => like.post)
-    likes: Like[];
+  @Column({ type: 'jsonb', nullable: true, default: null })
+  mentions: string[] | null;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @ManyToOne(() => User, (user) => user.posts)
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
-    @UpdateDateColumn()
-    updatedAt: Date;
+  @OneToMany(() => Comment, (comment) => comment.post)
+  comments: Comment[];
+
+  @OneToMany(() => Like, (like) => like.post)
+  likes: Like[];
+
+  @OneToMany(() => PostReaction, (reaction) => reaction.post)
+  reactions: PostReaction[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

@@ -120,15 +120,44 @@ export class AuthService {
   }
 
   async sendEmailVerification(email: string) {
+    const trimmed = email?.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Email is required to send a verification code');
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     // Store OTP in Redis with 10 minutes expiry
-    await this.redisService.set(`otp:${email}`, otp, 600);
+    await this.redisService.set(`otp:${trimmed}`, otp, 600);
 
     // Send email
-    await this.emailService.sendVerificationEmail(email, otp);
+    await this.emailService.sendVerificationEmail(trimmed, otp);
 
     return { message: 'Verification code sent to your email' };
+  }
+
+  async resendEmailVerification(body: { email?: string; userId?: string }) {
+    let email = body.email?.trim();
+
+    if (!email && body.userId) {
+      const user = await this.userRepository.findOne({
+        where: { id: body.userId },
+      });
+      if (!user?.email) {
+        throw new BadRequestException(
+          'Could not find an account to resend the verification code',
+        );
+      }
+      email = user.email;
+    }
+
+    if (!email) {
+      throw new BadRequestException(
+        'Email is required to resend the verification code',
+      );
+    }
+
+    return this.sendEmailVerification(email);
   }
 
   async forgotPassword(email: string) {
