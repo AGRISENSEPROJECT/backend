@@ -111,6 +111,11 @@ export class AuthController {
           format: 'email',
           example: 'user@example.com',
         },
+        userId: {
+          type: 'string',
+          format: 'uuid',
+          description: 'Optional fallback if email is not available',
+        },
       },
     },
   })
@@ -123,8 +128,8 @@ export class AuthController {
       },
     },
   })
-  async resendOtp(@Body() body: { email: string }) {
-    return this.authService.sendEmailVerification(body.email);
+  async resendOtp(@Body() body: { email?: string; userId?: string }) {
+    return this.authService.resendEmailVerification(body);
   }
 
   @Post('forgot-password')

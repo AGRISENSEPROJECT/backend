@@ -29,8 +29,14 @@ export class EmailService {
   }
 
   private async sendEmail(email: string, otp: string, type: 'verification' | 'reset') {
+    if (!email?.trim()) {
+      console.error('❌ Refusing to send email: recipient address is missing');
+      throw new Error('Recipient email is required');
+    }
+
     const isDevelopment = this.configService.get('NODE_ENV') === 'development';
     const senderEmail = 'nzizaprince7@gmail.com';
+    const recipient = email.trim();
 
     const isVerification = type === 'verification';
     const subject = isVerification ? 'Agrisense - Email Verification' : 'Agrisense - Password Reset';
@@ -47,12 +53,12 @@ export class EmailService {
       console.log('\n=================================');
       console.log(`📧 ${isVerification ? 'EMAIL VERIFICATION' : 'PASSWORD RESET'}`);
       console.log('=================================');
-      console.log(`📨 To: ${email}`);
+      console.log(`📨 To: ${recipient}`);
       console.log(`🔑 OTP: ${otp}`);
       console.log('⏰ Expires in: 10 minutes');
       console.log('=================================\n');
     } else {
-      console.log(`🔑 OTP for ${email}: ${otp}`);
+      console.log(`🔑 OTP for ${recipient}: ${otp}`);
     }
 
     const emailHtml = `
@@ -74,23 +80,25 @@ export class EmailService {
     // Send via Brevo HTTP API
     if (this.brevoApi) {
       try {
-        console.log(`📤 Sending ${type} email via Brevo HTTP API to: ${email}`);
+        console.log(`📤 Sending ${type} email via Brevo HTTP API to: ${recipient}`);
         console.log(`📧 From: ${senderEmail}`);
         
         const sendSmtpEmail = new brevo.SendSmtpEmail();
-        sendSmtpEmail.to = [{ email: email }];
+        sendSmtpEmail.to = [{ email: recipient }];
         sendSmtpEmail.sender = { email: senderEmail, name: 'Agrisense' };
         sendSmtpEmail.subject = subject;
         sendSmtpEmail.htmlContent = emailHtml;
         
         const response = await this.brevoApi.sendTransacEmail(sendSmtpEmail);
         
-        console.log(`✅ Email sent successfully via Brevo to: ${email}`);
+        console.log(`✅ Email sent successfully via Brevo to: ${recipient}`);
         console.log(`📧 Message ID: ${response.body?.messageId}`);
         return;
-      } catch (error) {
-        console.error('❌ Failed to send email via Brevo:', error);
-        console.error('❌ Error details:', error.response?.body || error.message);
+      } catch (error: any) {
+        console.error(
+          '❌ Failed to send email via Brevo:',
+          error?.response?.data || error?.message || error,
+        );
         console.log('📝 OTP is logged above for manual verification');
         
         // Don't throw error - just log OTP for manual verification
