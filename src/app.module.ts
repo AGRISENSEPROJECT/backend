@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { FarmModule } from './farm/farm.module';
 import { CommunityModule } from './community/community.module';
+import { NotificationModule } from './notification/notification.module';
 import { User } from './entities/user.entity';
 import { Farm } from './entities/farm.entity';
 import { Post } from './entities/post.entity';
@@ -18,6 +19,10 @@ import { Recommendation } from './entities/recommendation.entity';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { Message } from './entities/message.entity';
+import { Notification } from './entities/notification.entity';
+import { UserBlock } from './entities/user-block.entity';
+import { PostReaction } from './entities/post-reaction.entity';
+import { MessageReceipt } from './entities/message-receipt.entity';
 import { PredictionModule } from './prediction/prediction.module';
 
 @Module({
@@ -57,6 +62,10 @@ import { PredictionModule } from './prediction/prediction.module';
             Conversation,
             ConversationMember,
             Message,
+            Notification,
+            UserBlock,
+            PostReaction,
+            MessageReceipt,
           ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
@@ -84,6 +93,7 @@ import { PredictionModule } from './prediction/prediction.module';
     AuthModule,
     FarmModule,
     CommunityModule,
+    NotificationModule,
     PredictionModule,
   ],
   controllers: [AppController],

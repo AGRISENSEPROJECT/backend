@@ -26,6 +26,9 @@ export class ConversationMember {
   @Column({ type: 'timestamptz', nullable: true })
   lastReadAt: Date | null;
 
+  @Column({ type: 'timestamptz', nullable: true, default: null })
+  mutedAt: Date | null;
+
   @CreateDateColumn()
   joinedAt: Date;
 }

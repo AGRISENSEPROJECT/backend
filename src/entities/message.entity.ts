@@ -4,10 +4,12 @@ import {
   Column,
   CreateDateColumn,
   ManyToOne,
+  OneToMany,
   Index,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Conversation } from './conversation.entity';
+import { MessageReceipt } from './message-receipt.entity';
 
 @Entity('messages')
 export class Message {
@@ -25,6 +27,12 @@ export class Message {
 
   @Column({ type: 'text' })
   content: string;
+
+  @Column({ type: 'timestamptz', nullable: true, default: null })
+  deletedAt: Date | null;
+
+  @OneToMany(() => MessageReceipt, (receipt) => receipt.message)
+  receipts: MessageReceipt[];
 
   @CreateDateColumn()
   createdAt: Date;
