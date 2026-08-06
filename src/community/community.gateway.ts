@@ -185,6 +185,7 @@ export class CommunityGateway
     const room = `conversation:${message.conversationId}`;
     this.server.to(room).emit('message:new', message);
     for (const userId of memberUserIds) {
+      this.server.to(`user:${userId}`).emit('message:new', message);
       this.server.to(`user:${userId}`).emit('conversation:updated', {
         conversationId: message.conversationId,
         lastMessage: message,

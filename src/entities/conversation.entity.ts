@@ -31,6 +31,9 @@ export class Conversation {
   @Column({ type: 'varchar', length: 120, nullable: true })
   name: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  imageUrl: string | null;
+
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   createdBy: User | null;
 

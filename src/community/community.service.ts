@@ -743,6 +743,8 @@ export class CommunityService {
         conversation.type === ConversationType.GROUP
           ? conversation.name
           : otherMembers[0]?.username || 'Direct chat',
+      imageUrl: conversation.imageUrl ?? null,
+      createdById: conversation.createdBy?.id ?? null,
       members,
       otherMembers,
       muted,
@@ -952,6 +954,37 @@ export class CommunityService {
     await this.conversationRepository.save(conversation);
     const serialized = this.serializeConversation(conversation, user.id);
     this.communityGateway.notifyConversationUpdated(serialized, this.memberIds(conversation));
+    return serialized;
+  }
+
+  async updateGroupImage(
+    user: User,
+    conversationId: string,
+    image: Express.Multer.File,
+  ) {
+    if (!image) {
+      throw new BadRequestException('Group image is required');
+    }
+    const conversation = await this.conversationRepository.findOne({
+      where: { id: conversationId },
+      relations: ['createdBy', 'members', 'members.user'],
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+    await this.assertMembership(user.id, conversationId);
+    await this.assertGroupAdmin(user, conversation);
+
+    const previousUrl = conversation.imageUrl;
+    conversation.imageUrl = await this.cloudinaryService.uploadPostImage(image);
+    await this.conversationRepository.save(conversation);
+    if (previousUrl) {
+      await this.cloudinaryService.deleteImage(previousUrl);
+    }
+
+    const serialized = this.serializeConversation(conversation, user.id);
+    this.communityGateway.notifyConversationUpdated(
+      serialized,
+      this.memberIds(conversation),
+    );
     return serialized;
   }
 

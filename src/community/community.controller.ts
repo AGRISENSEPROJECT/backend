@@ -270,6 +270,26 @@ export class CommunityController {
     return this.communityService.renameGroup(req.user, id, dto.name);
   }
 
+  @Post('conversations/:id/image')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload or replace a group profile image (creator only)' })
+  updateGroupImage(
+    @Req() req,
+    @Param('id') id: string,
+    @UploadedFile() image?: Express.Multer.File,
+  ) {
+    if (!image) {
+      throw new BadRequestException('Send multipart field "image".');
+    }
+    return this.communityService.updateGroupImage(req.user, id, image);
+  }
+
   @Post('conversations/:id/members')
   @ApiOperation({ summary: 'Add members to a group' })
   @ApiBody({ type: GroupMembersDto })
