@@ -2,10 +2,8 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
   Body,
   Param,
-  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -18,19 +16,11 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { CommunityService } from './community.service';
-import {
-  CreatePostDto,
-  CreateCommentDto,
-  ListPostsQueryDto,
-  ReportPostDto,
-  ModerateReportDto,
-  HidePostDto,
-} from './dto/create-post.dto';
+import { CreatePostDto, CreateCommentDto } from './dto/create-post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../entities/user.entity';
-import { PostReportStatus } from '../entities/post-report.entity';
 
 @ApiTags('Community')
 @ApiBearerAuth()
@@ -54,7 +44,6 @@ export class CommunityController {
       req.user,
       createPostDto.description,
       createPostDto.imageUrl,
-      createPostDto.tags,
     );
   }
 
@@ -66,14 +55,14 @@ export class CommunityController {
     UserRole.GOVERNMENT,
     UserRole.ADMIN,
   )
-  @ApiOperation({ summary: 'Get community posts (paginated, filterable)' })
+  @ApiOperation({ summary: 'Get all community posts' })
   @ApiResponse({
     status: 200,
     description: 'Posts retrieved successfully',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  getAllPosts(@Req() req, @Query() query: ListPostsQueryDto) {
-    return this.communityService.getAllPosts(query, req.user.role);
+  getAllPosts() {
+    return this.communityService.getAllPosts();
   }
 
   @Post('posts/:id/like')
@@ -115,59 +104,5 @@ export class CommunityController {
       id,
       createCommentDto.content,
     );
-  }
-
-  @Post('posts/:id/report')
-  @Roles(
-    UserRole.FARMER,
-    UserRole.SUPPLIER,
-    UserRole.NGO,
-    UserRole.GOVERNMENT,
-    UserRole.ADMIN,
-  )
-  @ApiOperation({ summary: 'Report a community post' })
-  reportPost(
-    @Req() req,
-    @Param('id') id: string,
-    @Body() dto: ReportPostDto,
-  ) {
-    return this.communityService.reportPost(req.user, id, dto);
-  }
-
-  @Get('reports')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'List post reports (admin)' })
-  listReports(
-    @Query('status') status?: PostReportStatus,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-  ) {
-    return this.communityService.listReports(
-      status,
-      page ? Number(page) : 1,
-      limit ? Number(limit) : 20,
-    );
-  }
-
-  @Patch('reports/:id')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Moderate a post report (admin)' })
-  moderateReport(
-    @Req() req,
-    @Param('id') id: string,
-    @Body() dto: ModerateReportDto,
-  ) {
-    return this.communityService.moderateReport(req.user, id, dto);
-  }
-
-  @Patch('posts/:id/visibility')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Hide or unhide a post (admin)' })
-  setVisibility(
-    @Req() req,
-    @Param('id') id: string,
-    @Body() dto: HidePostDto,
-  ) {
-    return this.communityService.setPostHidden(req.user, id, dto.hide);
   }
 }

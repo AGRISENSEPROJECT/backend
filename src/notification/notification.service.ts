@@ -1,17 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import {
   Notification,
   NotificationType,
 } from '../entities/notification.entity';
 import { ListNotificationsQueryDto } from './dto/notification.dto';
-import {
-  NOTIFICATION_EMAIL_QUEUE,
-  NotificationEmailJob,
-} from '../jobs/queue.constants';
 
 export type CreateNotificationInput = {
   userId: string;
@@ -23,13 +17,9 @@ export type CreateNotificationInput = {
 
 @Injectable()
 export class NotificationService {
-  private readonly logger = new Logger(NotificationService.name);
-
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
-    @InjectQueue(NOTIFICATION_EMAIL_QUEUE)
-    private readonly notificationEmailQueue: Queue<NotificationEmailJob>,
   ) {}
 
   async create(input: CreateNotificationInput) {
@@ -42,9 +32,7 @@ export class NotificationService {
       isRead: false,
     });
 
-    const saved = await this.notificationRepository.save(notification);
-    await this.enqueueEmail(saved);
-    return saved;
+    return this.notificationRepository.save(notification);
   }
 
   async createMany(inputs: CreateNotificationInput[]) {
@@ -63,34 +51,7 @@ export class NotificationService {
       }),
     );
 
-    const saved = await this.notificationRepository.save(notifications);
-    await Promise.all(saved.map((item) => this.enqueueEmail(item)));
-    return saved;
-  }
-
-  private async enqueueEmail(notification: Notification) {
-    try {
-      await this.notificationEmailQueue.add(
-        'send',
-        {
-          notificationId: notification.id,
-          userId: notification.userId,
-          title: notification.title,
-          message: notification.message,
-          type: notification.type,
-        },
-        {
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 2000 },
-          removeOnComplete: 1000,
-          removeOnFail: 5000,
-        },
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Failed to enqueue notification email ${notification.id}: ${error?.message || error}`,
-      );
-    }
+    return this.notificationRepository.save(notifications);
   }
 
   async listForUser(userId: string, query: ListNotificationsQueryDto) {

@@ -10,7 +10,6 @@ import { AuthModule } from '../auth/auth.module';
 import { SupplierModule } from '../supplier/supplier.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OrganizationModule } from '../organization/organization.module';
-import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -19,7 +18,6 @@ import { AuditModule } from '../audit/audit.module';
     SupplierModule,
     NotificationModule,
     OrganizationModule,
-    AuditModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

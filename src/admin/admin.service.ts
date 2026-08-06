@@ -19,7 +19,6 @@ import { SupplierService } from '../supplier/supplier.service';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../entities/notification.entity';
 import { OrganizationService } from '../organization/organization.service';
-import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AdminService {
@@ -35,7 +34,6 @@ export class AdminService {
     private readonly supplierService: SupplierService,
     private readonly notificationService: NotificationService,
     private readonly organizationService: OrganizationService,
-    private readonly auditService: AuditService,
   ) {}
 
   private sanitizeUser(user: User) {
@@ -119,14 +117,6 @@ export class AdminService {
     user.status = dto.status;
     await this.userRepository.save(user);
 
-    await this.auditService.log({
-      actorId,
-      action: 'admin.user.update_status',
-      resource: 'user',
-      resourceId: user.id,
-      metadata: { status: dto.status },
-    });
-
     return {
       message: `User status updated to ${dto.status}`,
       user: this.sanitizeUser(user),
@@ -161,14 +151,6 @@ export class AdminService {
 
     // Demoting a supplier back to farmer keeps status as-is unless suspended
     await this.userRepository.save(user);
-
-    await this.auditService.log({
-      actorId,
-      action: 'admin.user.update_role',
-      resource: 'user',
-      resourceId: user.id,
-      metadata: { role: dto.role },
-    });
 
     return {
       message: `User role updated to ${dto.role}`,
@@ -221,12 +203,6 @@ export class AdminService {
       data: { userId },
     });
 
-    await this.auditService.log({
-      action: 'admin.supplier.approve',
-      resource: 'user',
-      resourceId: userId,
-    });
-
     const refreshed = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['supplierProfile'],
@@ -253,12 +229,6 @@ export class AdminService {
       message:
         'Your supplier account was rejected. Update your profile and contact support if you believe this is a mistake.',
       data: { userId },
-    });
-
-    await this.auditService.log({
-      action: 'admin.supplier.reject',
-      resource: 'user',
-      resourceId: userId,
     });
 
     const refreshed = await this.userRepository.findOne({
@@ -320,13 +290,6 @@ export class AdminService {
       data: { userId, role: user.role },
     });
 
-    await this.auditService.log({
-      action: 'admin.organization.approve',
-      resource: 'user',
-      resourceId: userId,
-      metadata: { role: user.role },
-    });
-
     const refreshed = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['organization'],
@@ -352,13 +315,6 @@ export class AdminService {
       title: 'Organization rejected',
       message: `Your ${user.role} organization account was rejected.`,
       data: { userId, role: user.role },
-    });
-
-    await this.auditService.log({
-      action: 'admin.organization.reject',
-      resource: 'user',
-      resourceId: userId,
-      metadata: { role: user.role },
     });
 
     const refreshed = await this.userRepository.findOne({

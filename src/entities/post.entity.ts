@@ -22,12 +22,6 @@ export class Post {
     @Column({ nullable: true })
     imageUrl: string;
 
-    @Column('text', { array: true, default: '{}' })
-    tags: string[];
-
-    @Column({ default: false })
-    isHidden: boolean;
-
     @ManyToOne(() => User, (user) => user.posts)
     user: User;
 
