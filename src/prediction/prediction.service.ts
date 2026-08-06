@@ -13,15 +13,12 @@ import {
   RecommendationType,
 } from '../entities/recommendation.entity';
 import { SoilScan, SoilScanSource } from '../entities/soil-scan.entity';
-import { UserRole } from '../entities/user.entity';
 import { CreatePredictionDto } from './dto/create-prediction.dto';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
 import {
   PredictionHistoryQueryDto,
   RecommendationQueryDto,
 } from './dto/history-query.dto';
-import { NotificationService } from '../notification/notification.service';
-import { NotificationType } from '../entities/notification.entity';
 
 type PlainObject = Record<string, unknown>;
 type ModelPayload = {
@@ -57,32 +54,23 @@ export class PredictionService {
     @InjectRepository(Recommendation)
     private readonly recommendationRepository: Repository<Recommendation>,
     private readonly configService: ConfigService,
-    private readonly notificationService: NotificationService,
   ) {}
-
-  private isAdmin(role?: UserRole) {
-    return role === UserRole.ADMIN;
-  }
 
   async runPrediction(
     userId: string,
     dto: CreatePredictionDto,
     imageFile: Express.Multer.File,
-    role?: UserRole,
   ) {
     const farm = await this.farmRepository.findOne({
-      where: this.isAdmin(role) ? { id: dto.farmId } : { id: dto.farmId, userId },
+      where: { id: dto.farmId, userId },
     });
 
     if (!farm) {
       throw new NotFoundException('Farm not found');
     }
 
-    // Admin support runs are attributed to the farm owner
-    const ownerId = this.isAdmin(role) ? farm.userId : userId;
-
     const soilScan = this.soilScanRepository.create({
-      userId: ownerId,
+      userId,
       farmId: dto.farmId,
       source: dto.source ?? SoilScanSource.IMAGE,
       rawImageUrl: dto.rawImageUrl ?? null,
@@ -115,7 +103,7 @@ export class PredictionService {
     const modelPayload = this.buildModelPayload(dto, soilScan);
 
     const predictionRun = this.predictionRunRepository.create({
-      userId: ownerId,
+      userId,
       farmId: dto.farmId,
       soilScanId: soilScan.id,
       modelName,
@@ -146,7 +134,7 @@ export class PredictionService {
         const recommendationEntities = recommendations.map((recommendation) =>
           this.recommendationRepository.create({
             predictionId: predictionRun.id,
-            userId: ownerId,
+            userId,
             farmId: dto.farmId,
             type: recommendation.type,
             title: recommendation.title,
@@ -158,18 +146,6 @@ export class PredictionService {
 
         await this.recommendationRepository.save(recommendationEntities);
       }
-
-      await this.notificationService.create({
-        userId: ownerId,
-        type: NotificationType.PREDICTION_READY,
-        title: 'Prediction ready',
-        message: `Your soil prediction for farm "${farm.name}" is ready.`,
-        data: {
-          predictionRunId: predictionRun.id,
-          farmId: dto.farmId,
-          status: PredictionStatus.SUCCESS,
-        },
-      });
 
       return {
         message: 'Prediction completed and stored successfully',
@@ -185,18 +161,6 @@ export class PredictionService {
       predictionRun.rawResponse = null;
       await this.predictionRunRepository.save(predictionRun);
 
-      await this.notificationService.create({
-        userId: ownerId,
-        type: NotificationType.PREDICTION_FAILED,
-        title: 'Prediction failed',
-        message: `Your soil prediction for farm "${farm.name}" failed. Please try again.`,
-        data: {
-          predictionRunId: predictionRun.id,
-          farmId: dto.farmId,
-          status: PredictionStatus.FAILED,
-        },
-      });
-
       throw new BadGatewayException({
         message: 'Failed to fetch prediction from model API',
         details: this.toErrorMessage(error),
@@ -204,20 +168,19 @@ export class PredictionService {
     }
   }
 
-  async getDashboard(userId: string, query: DashboardQueryDto, role?: UserRole) {
+  async getDashboard(userId: string, query: DashboardQueryDto) {
     const limit = query.limit ?? 10;
 
     if (query.farmId) {
-      await this.assertFarmOwnership(userId, query.farmId, role);
+      const farm = await this.farmRepository.findOne({
+        where: { id: query.farmId, userId },
+      });
+      if (!farm) {
+        throw new NotFoundException('Farm not found');
+      }
     }
 
-    const where = this.isAdmin(role)
-      ? query.farmId
-        ? { farmId: query.farmId }
-        : {}
-      : query.farmId
-        ? { userId, farmId: query.farmId }
-        : { userId };
+    const where = query.farmId ? { userId, farmId: query.farmId } : { userId };
 
     const latestSoilScan = await this.soilScanRepository.findOne({
       where,
@@ -275,19 +238,15 @@ export class PredictionService {
     };
   }
 
-  async getRecommendationHistory(
-    userId: string,
-    query: RecommendationQueryDto,
-    role?: UserRole,
-  ) {
-    await this.assertFarmOwnership(userId, query.farmId, role);
+  async getRecommendationHistory(userId: string, query: RecommendationQueryDto) {
+    await this.assertFarmOwnership(userId, query.farmId);
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
     const [items, total] = await this.recommendationRepository.findAndCount({
       where: {
-        ...(this.isAdmin(role) ? {} : { userId }),
+        userId,
         ...(query.farmId ? { farmId: query.farmId } : {}),
         ...(query.type ? { type: query.type } : {}),
       },
@@ -299,19 +258,15 @@ export class PredictionService {
     return { items, total, page, limit };
   }
 
-  async getPredictionHistory(
-    userId: string,
-    query: PredictionHistoryQueryDto,
-    role?: UserRole,
-  ) {
-    await this.assertFarmOwnership(userId, query.farmId, role);
+  async getPredictionHistory(userId: string, query: PredictionHistoryQueryDto) {
+    await this.assertFarmOwnership(userId, query.farmId);
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
     const [items, total] = await this.predictionRunRepository.findAndCount({
       where: {
-        ...(this.isAdmin(role) ? {} : { userId }),
+        userId,
         ...(query.farmId ? { farmId: query.farmId } : {}),
       },
       relations: { recommendations: true, soilScan: true },
@@ -323,9 +278,9 @@ export class PredictionService {
     return { items, total, page, limit };
   }
 
-  async getPredictionRun(userId: string, id: string, role?: UserRole) {
+  async getPredictionRun(userId: string, id: string) {
     const run = await this.predictionRunRepository.findOne({
-      where: this.isAdmin(role) ? { id } : { id, userId },
+      where: { id, userId },
       relations: { recommendations: true, soilScan: true },
     });
 
@@ -337,17 +292,11 @@ export class PredictionService {
     return run;
   }
 
-  private async assertFarmOwnership(
-    userId: string,
-    farmId?: string,
-    role?: UserRole,
-  ) {
+  private async assertFarmOwnership(userId: string, farmId?: string) {
     if (!farmId) {
       return;
     }
-    const farm = await this.farmRepository.findOne({
-      where: this.isAdmin(role) ? { id: farmId } : { id: farmId, userId },
-    });
+    const farm = await this.farmRepository.findOne({ where: { id: farmId, userId } });
     if (!farm) {
       throw new NotFoundException('Farm not found');
     }

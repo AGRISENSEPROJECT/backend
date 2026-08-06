@@ -43,8 +43,6 @@ export class AuthController {
       example: {
         message: 'Registration successful. Please check your email for verification code.',
         userId: 'uuid-string',
-        role: 'farmer',
-        status: 'pending',
       },
     },
   })
@@ -68,8 +66,6 @@ export class AuthController {
           id: 'uuid-string',
           email: 'user@example.com',
           username: 'username',
-          role: 'farmer',
-          status: 'active',
           isEmailVerified: true,
           farmsCount: 2,
         },

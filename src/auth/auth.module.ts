@@ -14,8 +14,6 @@ import { User } from '../entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -42,9 +40,7 @@ import { RolesGuard } from './guards/roles.guard';
     JwtStrategy,
     GoogleStrategy,
     FacebookStrategy,
-    JwtAuthGuard,
-    RolesGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, RolesGuard],
+  exports: [AuthService],
 })
 export class AuthModule {}

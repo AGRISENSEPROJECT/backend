@@ -7,16 +7,6 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { FarmModule } from './farm/farm.module';
 import { CommunityModule } from './community/community.module';
-import { AdminModule } from './admin/admin.module';
-import { SupplierModule } from './supplier/supplier.module';
-import { ProductModule } from './product/product.module';
-import { OrderModule } from './order/order.module';
-import { NotificationModule } from './notification/notification.module';
-import { PaymentModule } from './payment/payment.module';
-import { CartModule } from './cart/cart.module';
-import { OrganizationModule } from './organization/organization.module';
-import { ProgramModule } from './program/program.module';
-import { AnalyticsModule } from './analytics/analytics.module';
 import { User } from './entities/user.entity';
 import { Farm } from './entities/farm.entity';
 import { Post } from './entities/post.entity';
@@ -25,16 +15,6 @@ import { Like } from './entities/like.entity';
 import { SoilScan } from './entities/soil-scan.entity';
 import { PredictionRun } from './entities/prediction-run.entity';
 import { Recommendation } from './entities/recommendation.entity';
-import { SupplierProfile } from './entities/supplier-profile.entity';
-import { Product } from './entities/product.entity';
-import { Order } from './entities/order.entity';
-import { OrderItem } from './entities/order-item.entity';
-import { Notification } from './entities/notification.entity';
-import { CartItem } from './entities/cart-item.entity';
-import { Payment } from './entities/payment.entity';
-import { Organization } from './entities/organization.entity';
-import { Program } from './entities/program.entity';
-import { ProgramFarmer } from './entities/program-farmer.entity';
 import { PredictionModule } from './prediction/prediction.module';
 
 @Module({
@@ -62,26 +42,7 @@ import { PredictionModule } from './prediction/prediction.module';
                 database: configService.get<string>('DATABASE_NAME'),
               }),
           ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
-          entities: [
-            User,
-            Farm,
-            Post,
-            Comment,
-            Like,
-            SoilScan,
-            PredictionRun,
-            Recommendation,
-            SupplierProfile,
-            Product,
-            Order,
-            OrderItem,
-            Notification,
-            CartItem,
-            Payment,
-            Organization,
-            Program,
-            ProgramFarmer,
-          ],
+          entities: [User, Farm, Post, Comment, Like, SoilScan, PredictionRun, Recommendation],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
         };
@@ -109,18 +70,8 @@ import { PredictionModule } from './prediction/prediction.module';
     FarmModule,
     CommunityModule,
     PredictionModule,
-    AdminModule,
-    SupplierModule,
-    ProductModule,
-    OrderModule,
-    NotificationModule,
-    PaymentModule,
-    CartModule,
-    OrganizationModule,
-    ProgramModule,
-    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

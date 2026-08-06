@@ -4,34 +4,18 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Farm } from './farm.entity';
 import { Post } from './post.entity';
 import { Comment } from './comment.entity';
 import { Like } from './like.entity';
-import { SupplierProfile } from './supplier-profile.entity';
-import { Organization } from './organization.entity';
 
 export enum AuthProvider {
   LOCAL = 'local',
   GOOGLE = 'google',
   FACEBOOK = 'facebook',
-}
-
-export enum UserRole {
-  FARMER = 'farmer',
-  SUPPLIER = 'supplier',
-  NGO = 'ngo',
-  GOVERNMENT = 'government',
-  ADMIN = 'admin',
-}
-
-export enum UserStatus {
-  PENDING = 'pending',
-  ACTIVE = 'active',
-  SUSPENDED = 'suspended',
 }
 
 @Entity('users')
@@ -61,20 +45,6 @@ export class User {
   })
   provider: AuthProvider;
 
-  @Column({
-    type: 'enum',
-    enum: UserRole,
-    default: UserRole.FARMER,
-  })
-  role: UserRole;
-
-  @Column({
-    type: 'enum',
-    enum: UserStatus,
-    default: UserStatus.PENDING,
-  })
-  status: UserStatus;
-
   @Column({ nullable: true })
   providerId: string;
 
@@ -95,12 +65,6 @@ export class User {
 
   @OneToMany(() => Farm, (farm) => farm.user)
   farms: Farm[];
-
-  @OneToOne(() => SupplierProfile, (profile) => profile.user)
-  supplierProfile: SupplierProfile;
-
-  @OneToOne(() => Organization, (organization) => organization.user)
-  organization: Organization;
 
   @OneToMany(() => Post, (post) => post.user)
   posts: Post[];

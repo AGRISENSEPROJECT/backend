@@ -60,16 +60,6 @@ async function bootstrap() {
     .addTag('Farm Management', 'Farm CRUD operations and registration')
     .addTag('Community', 'Community posts, likes, and comments')
     .addTag('Predictions', 'Model predictions, recommendations, and history')
-    .addTag('Admin', 'Admin user management, supplier approval, and platform stats')
-    .addTag('Suppliers', 'Supplier business profiles and public catalog')
-    .addTag('Products', 'Marketplace product catalog and supplier inventory')
-    .addTag('Orders', 'Marketplace orders and fulfillment tracking')
-    .addTag('Cart', 'Shopping cart and multi-supplier checkout')
-    .addTag('Payments', 'Order payments (COD + Flutterwave mobile money/card)')
-    .addTag('Organizations', 'NGO and Government organization profiles')
-    .addTag('Programs', 'NGO support programs and farmer assignments')
-    .addTag('Analytics', 'Regional and platform analytics for Government/NGO')
-    .addTag('Notifications', 'In-app notifications for all roles')
     .addTag('Testing', 'Testing and debugging endpoints')
     .addBearerAuth(
       {

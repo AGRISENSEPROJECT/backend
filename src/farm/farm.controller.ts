@@ -8,32 +8,19 @@ import {
   UseGuards,
   Req,
   Param,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
 import { FarmService } from './farm.service';
 import { CreateFarmDto, UpdateFarmDto } from './dto/create-farm.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { User, UserRole } from '../entities/user.entity';
 
 @ApiBearerAuth()
 @ApiTags('Farm Management')
 @Controller('farms')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.FARMER, UserRole.ADMIN)
+@UseGuards(JwtAuthGuard)
 export class FarmController {
   constructor(private farmService: FarmService) {}
-
-  private getActor(req: Request): User {
-    const user = req.user as User | undefined;
-    if (!user?.id) {
-      throw new UnauthorizedException('User not authenticated');
-    }
-    return user;
-  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new farm with complete information' })
@@ -65,8 +52,11 @@ export class FarmController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createFarm(@Req() req: Request, @Body() createFarmDto: CreateFarmDto) {
-    const user = this.getActor(req);
-    return this.farmService.createFarm(user.id, createFarmDto);
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    return this.farmService.createFarm(userId, createFarmDto);
   }
 
   @Get()
@@ -110,8 +100,11 @@ export class FarmController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getAllFarms(@Req() req: Request) {
-    const user = this.getActor(req);
-    return this.farmService.getAllFarms(user.id, user.role);
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    return this.farmService.getAllFarms(userId);
   }
 
   @Get(':farmId')
@@ -143,8 +136,11 @@ export class FarmController {
   @ApiResponse({ status: 404, description: 'Farm not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getFarm(@Req() req: Request, @Param('farmId') farmId: string) {
-    const user = this.getActor(req);
-    return this.farmService.getFarm(user.id, farmId, user.role);
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    return this.farmService.getFarm(userId, farmId);
   }
 
   @Put(':farmId')
@@ -179,8 +175,11 @@ export class FarmController {
     @Param('farmId') farmId: string,
     @Body() updateFarmDto: UpdateFarmDto,
   ) {
-    const user = this.getActor(req);
-    return this.farmService.updateFarm(user.id, farmId, updateFarmDto, user.role);
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    return this.farmService.updateFarm(userId, farmId, updateFarmDto);
   }
 
   @Delete(':farmId')
@@ -198,7 +197,10 @@ export class FarmController {
   @ApiResponse({ status: 404, description: 'Farm not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async deleteFarm(@Req() req: Request, @Param('farmId') farmId: string) {
-    const user = this.getActor(req);
-    return this.farmService.deleteFarm(user.id, farmId, user.role);
+    const userId = (req.user as any)?.id;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    return this.farmService.deleteFarm(userId, farmId);
   }
 }
