@@ -45,14 +45,8 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('Agrisense API')
     .setDescription(
-      'Complete API documentation for Agrisense - Agricultural Management System\n\n' +
-        'Features:\n' +
-        '- Email/Password authentication with OTP verification\n' +
-        '- Google and Facebook OAuth (Web and Mobile)\n' +
-        '- Farm management with multi-step registration\n' +
-        '- Location tracking and owner information\n' +
-        '- JWT-based authentication\n' +
-        '- Rate limiting and security features',
+      'Production-ready API documentation for Agrisense.\n\n' +
+        'Modules are grouped by business capability: Authentication, Farms, Predictions, Community, Marketplace, Suppliers, Administration, Regional Operations, and Notifications.',
     )
     .setVersion('1.0')
     .addTag('General', 'General endpoints and health checks')
@@ -60,7 +54,12 @@ async function bootstrap() {
     .addTag('Farm Management', 'Farm CRUD operations and registration')
     .addTag('Community', 'Community posts, likes, and comments')
     .addTag('Predictions', 'Model predictions, recommendations, and history')
-    .addTag('Testing', 'Testing and debugging endpoints')
+    .addTag('Marketplace', 'Farmer product discovery, AI product matching, and orders')
+    .addTag('Supplier', 'Supplier registration, profile, products, demand intelligence, and sales')
+    .addTag('Admin', 'User administration, approvals, announcements, and audit logs')
+    .addTag('NGO', 'Regional NGO dashboards, programs, and reports')
+    .addTag('Government', 'National and regional analytics, advisories, and reports')
+    .addTag('Notifications', 'User notification inbox and read states')
     .addBearerAuth(
       {
         type: 'http',
@@ -82,6 +81,9 @@ async function bootstrap() {
     swaggerOptions: {
       persistAuthorization: true,
       displayRequestDuration: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+      docExpansion: 'none',
     },
   });
 

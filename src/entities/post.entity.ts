@@ -27,6 +27,12 @@ export class Post {
   @Column({ nullable: true })
   imageUrl: string;
 
+  @Column({ default: false })
+  isHidden: boolean;
+
+  @Column({ default: false })
+  isReported: boolean;
+
   @Column({ type: 'jsonb', nullable: true, default: null })
   hashtags: string[] | null;
 

@@ -1,77 +1,65 @@
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsStrongPassword } from '../../common/validators/password.validator';
 
 export class RegisterDto {
-  @ApiProperty({
-    description: 'User email address',
-    example: 'user@example.com',
-  })
+  @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({
-    description: 'Username (minimum 3 characters)',
-    example: 'johndoe',
-    minLength: 3,
-  })
+  @ApiProperty({ example: 'Password1!', description: 'Min 8 chars, upper, lower, number, special' })
   @IsString()
-  @MinLength(3)
-  username: string;
-
-  @ApiProperty({
-    description: 'Password (minimum 6 characters)',
-    example: 'password123',
-    minLength: 6,
-  })
-  @IsString()
-  @MinLength(6)
+  @IsStrongPassword()
   password: string;
+
+  @ApiProperty({ example: 'John' })
+  @IsString()
+  firstName: string;
+
+  @ApiProperty({ example: 'Doe' })
+  @IsString()
+  lastName: string;
+
+  @ApiProperty({ example: '+250788123456', required: false })
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+}
+
+export class IdentityVerificationDto {
+  @ApiProperty({ example: '1199880012345678', description: '16-digit Rwanda National ID' })
+  @IsString()
+  nationalId: string;
+
+  @ApiProperty({ example: 'NATIONAL_ID' })
+  @IsString()
+  documentType: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  idImageUrl?: string;
 }
 
 export class SocialRegisterDto {
-  @ApiProperty({
-    description: 'User email from social provider',
-    example: 'user@example.com',
-  })
+  @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({
-    description: 'Username from social provider',
-    example: 'johndoe',
-  })
-  @IsString()
-  username: string;
-
-  @ApiProperty({
-    description: 'Social provider name',
-    example: 'google',
-    enum: ['google', 'facebook'],
-  })
+  @ApiProperty({ example: 'google' })
   @IsString()
   provider: string;
 
-  @ApiProperty({
-    description: 'Provider user ID',
-    example: '1234567890',
-  })
+  @ApiProperty({ example: '1234567890' })
   @IsString()
   providerId: string;
 
-  @ApiProperty({
-    description: 'First name from social provider',
-    example: 'John',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   firstName?: string;
 
-  @ApiProperty({
-    description: 'Last name from social provider',
-    example: 'Doe',
-    required: false,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   lastName?: string;

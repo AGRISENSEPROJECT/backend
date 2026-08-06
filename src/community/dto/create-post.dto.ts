@@ -152,7 +152,7 @@ export class MuteConversationDto {
 }
 
 export class SearchUsersQueryDto {
-  @ApiPropertyOptional({ description: 'Search by username or email' })
+  @ApiPropertyOptional({ description: 'Search by name or email' })
   @IsOptional()
   @IsString()
   q?: string;
@@ -162,4 +162,15 @@ export class BlockUserDto {
   @ApiProperty({ description: 'User ID to block' })
   @IsUUID()
   userId: string;
+}
+
+export class ReportPostDto {
+  @ApiProperty({ enum: ['SPAM', 'HARASSMENT', 'INAPPROPRIATE', 'MISINFORMATION', 'OTHER'] })
+  @IsString()
+  reason: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  description?: string;
 }

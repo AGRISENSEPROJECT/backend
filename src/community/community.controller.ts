@@ -40,7 +40,12 @@ import {
   SendMessageDto,
   MuteConversationDto,
   BlockUserDto,
+  ReportPostDto,
 } from './dto/create-post.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @ApiTags('Community')
 @ApiBearerAuth()
@@ -397,5 +402,28 @@ export class CommunityController {
   @ApiOperation({ summary: 'Mark conversation as read (per-message receipts)' })
   markRead(@Req() req, @Param('id') id: string) {
     return this.communityService.markConversationRead(req.user, id);
+  }
+
+  @Post('posts/:id/report')
+  @ApiOperation({ summary: 'Report a post' })
+  @ApiBody({ type: ReportPostDto })
+  reportPost(@Req() req, @Param('id') id: string, @Body() dto: ReportPostDto) {
+    return this.communityService.reportPost(req.user, id, dto);
+  }
+
+  @Get('reports')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get pending reports (admin only)' })
+  getReports(@Query('page') page?: number, @Query('limit') limit?: number) {
+    return this.communityService.getReports(page || 1, limit || 20);
+  }
+
+  @Post('posts/:id/moderate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Moderate a reported post (admin only)' })
+  moderatePost(@Param('id') id: string, @Body('action') action: 'hide' | 'dismiss') {
+    return this.communityService.moderatePost(id, action);
   }
 }

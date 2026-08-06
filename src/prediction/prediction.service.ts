@@ -2,6 +2,8 @@ import {
   BadGatewayException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -19,6 +21,7 @@ import {
   PredictionHistoryQueryDto,
   RecommendationQueryDto,
 } from './dto/history-query.dto';
+import { MarketplaceMatchingService } from '../supplier/marketplace-matching.service';
 
 type PlainObject = Record<string, unknown>;
 type ModelPayload = {
@@ -54,6 +57,8 @@ export class PredictionService {
     @InjectRepository(Recommendation)
     private readonly recommendationRepository: Repository<Recommendation>,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => MarketplaceMatchingService))
+    private readonly marketplaceMatchingService: MarketplaceMatchingService,
   ) {}
 
   async runPrediction(
@@ -141,10 +146,36 @@ export class PredictionService {
             payload: recommendation.payload,
             rank: recommendation.rank,
             isPrimary: recommendation.isPrimary,
+            cropType: dto.crop_type ?? (summary.bestCrop as string) ?? null,
+            growingSeason: (summary.season as string) ?? null,
+            soilType: farm.soilType ?? (summary.soilTexture as string) ?? null,
+            weatherConditions: {
+              temperature: dto.temperature,
+              humidity: dto.humidity,
+              rainfall: dto.rainfall,
+            },
+            diseasePrediction: (summary.disease as string) ?? (summary.predictedDisease as string) ?? null,
+            confidenceScore: summary.confidence != null ? Number(summary.confidence) : null,
+            aiModelVersion: modelVersion,
           }),
         );
 
-        await this.recommendationRepository.save(recommendationEntities);
+        const saved = await this.recommendationRepository.save(recommendationEntities);
+
+        await this.marketplaceMatchingService.notifySuppliersOfDemand(
+          dto.farmId,
+          saved.map((r) => r.id),
+        );
+
+        return {
+          message: 'Prediction completed and stored successfully',
+          predictionRunId: predictionRun.id,
+          soilScan,
+          summary,
+          recommendations: saved,
+          rawResponse: modelResponse,
+          recommendationIds: saved.map((r) => r.id),
+        };
       }
 
       return {
@@ -152,7 +183,7 @@ export class PredictionService {
         predictionRunId: predictionRun.id,
         soilScan,
         summary,
-        recommendations,
+        recommendations: [],
         rawResponse: modelResponse,
       };
     } catch (error) {
@@ -389,15 +420,21 @@ export class PredictionService {
     // Grouped /predict shape: crop block carries best_crop + confidence.
     if (cropBlock) {
       const fertilizerBlock = this.findCategoryBlock(response, 'fertilizer');
+      const diseaseBlock = this.findCategoryBlock(response, 'disease');
+      const diseaseData = diseaseBlock ? this.toPlainObject(diseaseBlock.data) : {};
       return {
         bestCrop: cropBlock.best_crop ?? null,
         confidence: cropBlock.confidence ?? null,
+        disease: diseaseData.disease ?? diseaseData.predicted_disease ?? null,
+        predictedDisease: diseaseData.disease ?? diseaseData.predicted_disease ?? null,
+        season: response.season ?? response.growing_season ?? null,
         soilTexture: soilAnalysis.texture ?? null,
         soilMoisture: soilAnalysis.moisture ?? null,
         fertilizer: fertilizerBlock
           ? (this.toPlainObject(fertilizerBlock.data).recommended_fertilizer ?? null)
           : null,
         timestamp: response.timestamp ?? null,
+        modelVersion: response.model_version ?? null,
       };
     }
 
@@ -475,7 +512,37 @@ export class PredictionService {
         } else if (category.includes('fertilizer')) {
           append(RecommendationType.FERTILIZER, 'Fertilizer Recommendation', block.data);
         } else if (category.includes('disease')) {
-          append(RecommendationType.DISEASE, 'Disease Analysis', block.data);
+          const data = this.toPlainObject(block.data);
+          const diseaseName = data.disease ?? data.predicted_disease ?? data.name ?? 'Disease Analysis';
+          append(RecommendationType.DISEASE, String(diseaseName), block.data);
+          if (data.treatment || data.pesticide) {
+            append(
+              RecommendationType.PESTICIDE,
+              String(data.treatment ?? data.pesticide),
+              { product: data.treatment ?? data.pesticide, disease: diseaseName, ...data },
+            );
+          }
+        } else if (category.includes('pesticide') || category.includes('herbicide')) {
+          const type = category.includes('herbicide')
+            ? RecommendationType.HERBICIDE
+            : RecommendationType.PESTICIDE;
+          const data = this.toPlainObject(block.data);
+          append(type, String(data.product ?? data.name ?? block.category), block.data);
+        } else if (category.includes('seed')) {
+          const data = Array.isArray(block.data) ? block.data : [block.data];
+          data.forEach((item, index) => {
+            const plain = this.toPlainObject(item);
+            append(
+              RecommendationType.SEED,
+              String(plain.variety ?? plain.seed ?? plain.name ?? `Seed ${index + 1}`),
+              plain,
+              index === 0,
+            );
+          });
+        } else if (category.includes('equipment') || category.includes('machinery')) {
+          append(RecommendationType.EQUIPMENT, String(block.category), block.data);
+        } else if (category.includes('soil')) {
+          append(RecommendationType.SOIL_IMPROVEMENT, 'Soil Improvement', block.data);
         } else if (category.includes('weather')) {
           append(RecommendationType.WEATHER, 'Weather Forecast', block.data);
         } else {

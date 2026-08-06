@@ -24,6 +24,9 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
 import { CreatePredictionDto } from './dto/create-prediction.dto';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
 import {
@@ -35,7 +38,8 @@ import { PredictionService } from './prediction.service';
 @ApiBearerAuth()
 @ApiTags('Predictions')
 @Controller('predictions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.FARMER)
 export class PredictionController {
   constructor(private readonly predictionService: PredictionService) {}
 

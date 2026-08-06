@@ -1,9 +1,10 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiExcludeController, ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from './email.service';
 
 @ApiTags('Testing')
+@ApiExcludeController()
 @Controller('test')
 export class TestEmailController {
   constructor(

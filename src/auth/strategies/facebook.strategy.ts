@@ -34,7 +34,6 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
 
     const socialRegisterDto = {
       email: emails[0].value,
-      username: `${name.givenName}_${name.familyName}`.toLowerCase(),
       provider: 'facebook',
       providerId: id,
       firstName: name.givenName,

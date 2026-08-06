@@ -19,7 +19,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterDto, IdentityVerificationDto } from './dto/register.dto';
+import { OnboardingFarmDto } from './dto/onboarding.dto';
 import { LoginDto, VerifyOtpDto } from './dto/login.dto';
 import { ForgotPasswordDto, VerifyResetOtpDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { UpdateProfileDto, ChangePasswordDto } from './dto/update-profile.dto';
@@ -28,6 +29,9 @@ import { VerifyGoogleTokenDto, VerifyFacebookTokenDto } from './dto/verify-token
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -52,8 +56,37 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
+  @Post('onboarding/identity')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.FARMER)
+  @ApiOperation({ summary: 'Step 2 - Submit identity verification (farmers only)' })
+  async verifyIdentity(@Req() req: Request, @Body() dto: IdentityVerificationDto) {
+    const user = req.user as any;
+    return this.authService.verifyIdentity(user.id, dto);
+  }
+
+  @Post('onboarding/farm')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.FARMER)
+  @ApiOperation({ summary: 'Step 3 - Create farm during onboarding (farmers only)' })
+  async completeOnboardingFarm(@Req() req: Request, @Body() dto: OnboardingFarmDto) {
+    const user = req.user as any;
+    return this.authService.completeOnboardingFarm(user.id, dto);
+  }
+
+  @Get('onboarding/status')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get onboarding status' })
+  async getOnboardingStatus(@Req() req: Request) {
+    const user = req.user as any;
+    return this.authService.getOnboardingStatus(user.id);
+  }
+
   @Post('login')
-  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiOperation({ summary: 'Login with email or phone (farmers) and password' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
     status: 200,
@@ -66,7 +99,8 @@ export class AuthController {
         user: {
           id: 'uuid-string',
           email: 'user@example.com',
-          username: 'username',
+          firstName: 'John',
+          lastName: 'Doe',
           isEmailVerified: true,
           farmsCount: 2,
         },
@@ -90,7 +124,8 @@ export class AuthController {
         user: {
           id: 'uuid-string',
           email: 'user@example.com',
-          username: 'username',
+          firstName: 'John',
+          lastName: 'Doe',
         },
       },
     },
@@ -226,7 +261,8 @@ export class AuthController {
         user: {
           id: 'uuid-string',
           email: 'user@example.com',
-          username: 'username',
+          firstName: 'John',
+          lastName: 'Doe',
           isEmailVerified: true,
           hasFarm: false,
         },
@@ -250,7 +286,8 @@ export class AuthController {
         user: {
           id: 'uuid-string',
           email: 'user@example.com',
-          username: 'username',
+          firstName: 'John',
+          lastName: 'Doe',
           isEmailVerified: true,
           hasFarm: false,
         },
@@ -274,7 +311,8 @@ export class AuthController {
         user: {
           id: 'uuid-string',
           email: 'user@example.com',
-          username: 'username',
+          firstName: 'John',
+          lastName: 'Doe',
           isEmailVerified: true,
           provider: 'local',
           createdAt: '2023-01-01T00:00:00.000Z',
@@ -286,17 +324,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
   async getProfile(@Req() req: Request) {
     const user = req.user as any;
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        isEmailVerified: user.isEmailVerified,
-        profileImage: user.profileImage ?? null,
-        phoneNumber: user.phoneNumber ?? null,
-        farmsCount: Array.isArray(user.farms) ? user.farms.length : (user.farmsCount ?? 0),
-      },
-    };
+    return this.authService.getFullProfile(user.id);
   }
 
   @Put('profile')

@@ -3,13 +3,21 @@ services:
     name: agrisense-backend
     env: node
     plan: free
-    buildCommand: corepack enable && yarn install --immutable && yarn build && node scripts/run-migration.js
-    startCommand: yarn start:prod
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
     envVars:
       - key: NODE_ENV
         value: production
       - key: TYPEORM_SYNCHRONIZE
-        value: "true"
+        value: "false"
+      - key: SEED_ADMIN_EMAIL
+        value: nibishaka.dev@gmail.com
+      - key: SEED_ADMIN_FIRST_NAME
+        value: Nibishaka
+      - key: SEED_ADMIN_LAST_NAME
+        value: Admin
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
 
       # PostgreSQL (external, e.g. Neon)
       - key: DATABASE_URL

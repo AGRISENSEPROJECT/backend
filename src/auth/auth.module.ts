@@ -11,13 +11,14 @@ import { RedisService } from './redis.service';
 import { CloudinaryService } from './cloudinary.service';
 import { TokenVerificationService } from './token-verification.service';
 import { User } from '../entities/user.entity';
+import { Farm } from '../entities/farm.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Farm]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

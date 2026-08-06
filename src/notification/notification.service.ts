@@ -7,11 +7,6 @@ import {
 } from '../entities/notification.entity';
 import { ListNotificationsQueryDto } from './dto/notification.dto';
 
-/**
- * Shared notification API used by community (this branch) and marketplace
- * work on main. Keep create/list/markRead signatures stable when merging.
- * Email queue (BullMQ) lives on main — wire it back on merge if present.
- */
 export type CreateNotificationInput = {
   userId: string;
   type: NotificationType | string;
@@ -29,7 +24,24 @@ export class NotificationService {
     private readonly notificationRepository: Repository<Notification>,
   ) {}
 
-  async create(input: CreateNotificationInput) {
+  async create(
+    inputOrUserId: CreateNotificationInput | string,
+    title?: string,
+    message?: string,
+    type?: NotificationType | string,
+    data?: Record<string, unknown> | null,
+  ) {
+    const input: CreateNotificationInput =
+      typeof inputOrUserId === 'string'
+        ? {
+            userId: inputOrUserId,
+            title: title!,
+            message: message!,
+            type: type ?? NotificationType.SYSTEM,
+            data,
+          }
+        : inputOrUserId;
+
     if (!input.userId) {
       return null;
     }

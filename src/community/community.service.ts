@@ -27,10 +27,14 @@ import { NotificationType } from '../entities/notification.entity';
 import { NotificationService } from '../notification/notification.service';
 import { CloudinaryService } from '../auth/cloudinary.service';
 import { CommunityGateway } from './community.gateway';
+import { PostReport, ReportStatus } from '../entities/post-report.entity';
+import { UserRole } from '../common/enums/user-role.enum';
+import { ReportPostDto } from './dto/create-post.dto';
 
 type AuthorDto = {
   id: string;
-  username: string;
+  firstName?: string | null;
+  lastName?: string | null;
   email?: string;
   profileImage?: string | null;
 };
@@ -60,6 +64,8 @@ export class CommunityService {
     private reactionRepository: Repository<PostReaction>,
     @InjectRepository(MessageReceipt)
     private receiptRepository: Repository<MessageReceipt>,
+    @InjectRepository(PostReport)
+    private reportRepository: Repository<PostReport>,
     private communityGateway: CommunityGateway,
     private notificationService: NotificationService,
     private cloudinaryService: CloudinaryService,
@@ -69,10 +75,16 @@ export class CommunityService {
     if (!user) return null;
     return {
       id: user.id,
-      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       profileImage: user.profileImage ?? null,
     };
+  }
+
+  private displayName(user: User): string {
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+    return name || user.email;
   }
 
   private extractHashtags(text: string): string[] {
@@ -233,9 +245,9 @@ export class CommunityService {
     if (mentionUsernames.length > 0) {
       const mentioned = await this.userRepository
         .createQueryBuilder('user')
-        .where('LOWER(user.username) IN (:...names)', {
-          names: mentionUsernames,
-        })
+        .where('LOWER(user.email) IN (:...names)', { names: mentionUsernames })
+        .orWhere('LOWER(user.firstName) IN (:...names)', { names: mentionUsernames })
+        .orWhere('LOWER(user.lastName) IN (:...names)', { names: mentionUsernames })
         .getMany();
 
       for (const target of mentioned) {
@@ -244,7 +256,7 @@ export class CommunityService {
           userId: target.id,
           type: NotificationType.COMMUNITY_MENTION,
           title: 'You were mentioned',
-          message: `${user.username} mentioned you in a post`,
+          message: `${this.displayName(user)} mentioned you in a post`,
           data: { postId: saved.id, actorId: user.id },
         });
       }
@@ -320,6 +332,7 @@ export class CommunityService {
     const qb = this.postRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.user', 'user')
+      .where('post.isHidden = :hidden', { hidden: false })
       .leftJoinAndSelect('post.comments', 'comments')
       .leftJoinAndSelect('comments.user', 'commentUser')
       .leftJoinAndSelect('post.likes', 'likes')
@@ -362,7 +375,7 @@ export class CommunityService {
       relations: ['user'],
     });
     if (!post) throw new NotFoundException('Post not found');
-    if (post.user?.id !== user.id) {
+    if (post.user?.id !== user.id && user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('You can only delete your own posts');
     }
 
@@ -447,7 +460,7 @@ export class CommunityService {
         userId: post.user.id,
         type: NotificationType.COMMUNITY_LIKE,
         title: 'New like',
-        message: `${user.username} liked your post`,
+        message: `${this.displayName(user)} liked your post`,
         data: { postId, actorId: user.id },
       });
     }
@@ -517,7 +530,7 @@ export class CommunityService {
         userId: post.user.id,
         type: NotificationType.COMMUNITY_LIKE,
         title: 'New reaction',
-        message: `${user.username} reacted (${type}) to your post`,
+        message: `${this.displayName(user)} reacted (${type}) to your post`,
         data: { postId, actorId: user.id, reaction: type },
       });
     }
@@ -587,7 +600,7 @@ export class CommunityService {
         userId: parent.user.id,
         type: NotificationType.COMMUNITY_REPLY,
         title: 'New reply',
-        message: `${user.username} replied to your comment`,
+        message: `${this.displayName(user)} replied to your comment`,
         data: {
           postId: post.id,
           commentId: saved.id,
@@ -600,7 +613,7 @@ export class CommunityService {
         userId: post.user.id,
         type: NotificationType.COMMUNITY_COMMENT,
         title: 'New comment',
-        message: `${user.username} commented on your post`,
+        message: `${this.displayName(user)} commented on your post`,
         data: { postId: post.id, commentId: saved.id, actorId: user.id },
       });
     }
@@ -692,14 +705,15 @@ export class CommunityService {
     const blocked = await this.getBlockedUserIds(currentUserId);
     const qb = this.userRepository
       .createQueryBuilder('user')
-      .select(['user.id', 'user.username', 'user.email', 'user.profileImage'])
+      .select(['user.id', 'user.firstName', 'user.lastName', 'user.email', 'user.profileImage'])
       .where('user.id != :currentUserId', { currentUserId })
-      .orderBy('user.username', 'ASC')
+      .orderBy('user.firstName', 'ASC')
+      .addOrderBy('user.lastName', 'ASC')
       .take(20);
 
     if (q?.trim()) {
       qb.andWhere(
-        '(LOWER(user.username) LIKE :q OR LOWER(user.email) LIKE :q)',
+        '(LOWER(user.email) LIKE :q OR LOWER(user.firstName) LIKE :q OR LOWER(user.lastName) LIKE :q)',
         { q: `%${q.trim().toLowerCase()}%` },
       );
     }
@@ -742,7 +756,9 @@ export class CommunityService {
       name:
         conversation.type === ConversationType.GROUP
           ? conversation.name
-          : otherMembers[0]?.username || 'Direct chat',
+          : [otherMembers[0]?.firstName, otherMembers[0]?.lastName]
+              .filter(Boolean)
+              .join(' ') || otherMembers[0]?.email || 'Direct chat',
       imageUrl: conversation.imageUrl ?? null,
       createdById: conversation.createdBy?.id ?? null,
       members,
@@ -924,7 +940,7 @@ export class CommunityService {
         userId: member.id,
         type: NotificationType.COMMUNITY_GROUP_INVITE,
         title: 'Added to group',
-        message: `${user.username} added you to ${name.trim()}`,
+        message: `${this.displayName(user)} added you to ${name.trim()}`,
         data: { conversationId: saved.id, actorId: user.id },
       });
     }
@@ -1022,7 +1038,7 @@ export class CommunityService {
         userId: member.id,
         type: NotificationType.COMMUNITY_GROUP_INVITE,
         title: 'Added to group',
-        message: `${user.username} added you to ${conversation.name}`,
+        message: `${this.displayName(user)} added you to ${conversation.name}`,
         data: { conversationId, actorId: user.id },
       });
     }
@@ -1223,7 +1239,7 @@ export class CommunityService {
         userId: memberId,
         type: NotificationType.COMMUNITY_MESSAGE,
         title: 'New message',
-        message: `${user.username}: ${trimmed.slice(0, 120)}`,
+        message: `${this.displayName(user)}: ${trimmed.slice(0, 120)}`,
         data: {
           conversationId,
           messageId: saved.id,
@@ -1377,5 +1393,56 @@ export class CommunityService {
 
   getOnlineUserIds() {
     return this.communityGateway.getOnlineUserIds();
+  }
+
+  async reportPost(user: User, postId: string, dto: ReportPostDto) {
+    const post = await this.postRepository.findOne({ where: { id: postId } });
+    if (!post) throw new NotFoundException('Post not found');
+
+    const existing = await this.reportRepository.findOne({
+      where: { postId, reporterId: user.id },
+    });
+    if (existing) throw new BadRequestException('You have already reported this post');
+
+    const report = this.reportRepository.create({
+      post,
+      postId,
+      reporter: user,
+      reporterId: user.id,
+      reason: dto.reason as any,
+      description: dto.description,
+      status: ReportStatus.PENDING,
+    });
+    await this.reportRepository.save(report);
+
+    post.isReported = true;
+    await this.postRepository.save(post);
+
+    return { message: 'Post reported successfully', reportId: report.id };
+  }
+
+  async getReports(page = 1, limit = 20) {
+    const [reports, total] = await this.reportRepository.findAndCount({
+      relations: ['post', 'reporter', 'post.user'],
+      where: { status: ReportStatus.PENDING },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { reports, total, page, limit };
+  }
+
+  async moderatePost(postId: string, action: 'hide' | 'dismiss') {
+    const post = await this.postRepository.findOne({ where: { id: postId } });
+    if (!post) throw new NotFoundException('Post not found');
+
+    if (action === 'hide') {
+      post.isHidden = true;
+      await this.postRepository.save(post);
+      this.communityGateway.notifyPostDeleted({ id: postId });
+    }
+
+    await this.reportRepository.update({ postId }, { status: ReportStatus.ACTION_TAKEN });
+    return { message: `Post ${action === 'hide' ? 'hidden' : 'dismissed'}` };
   }
 }

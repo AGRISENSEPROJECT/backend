@@ -27,6 +27,7 @@ export enum NotificationType {
   ORGANIZATION_REJECTED = 'organization_rejected',
   WEATHER_ALERT = 'weather_alert',
   IOT_ALERT = 'iot_alert',
+  MODERATION = 'moderation',
   // Community
   COMMUNITY_LIKE = 'community_like',
   COMMUNITY_COMMENT = 'community_comment',

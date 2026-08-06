@@ -1,13 +1,12 @@
 import {
   IsString,
   IsOptional,
-  MinLength,
-  MaxLength,
   Matches,
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { IsStrongPassword } from '../../common/validators/password.validator';
 
 const emptyToUndefined = ({ value }: { value: unknown }) => {
   if (value === null || value === undefined) return undefined;
@@ -16,17 +15,6 @@ const emptyToUndefined = ({ value }: { value: unknown }) => {
 };
 
 export class UpdateProfileDto {
-  @ApiPropertyOptional({
-    example: 'john_doe',
-    description: 'Username',
-  })
-  @Transform(emptyToUndefined)
-  @IsOptional()
-  @IsString()
-  @MinLength(3)
-  @MaxLength(30)
-  username?: string;
-
   @ApiPropertyOptional({
     example: '+250788123456',
     description: 'Phone number (optional — omit or leave blank to skip)',
@@ -39,6 +27,16 @@ export class UpdateProfileDto {
     message: 'Invalid phone number format. Use E.164 like +250788123456',
   })
   phoneNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 }
 
 export class ChangePasswordDto {
@@ -49,11 +47,8 @@ export class ChangePasswordDto {
   @IsString()
   currentPassword: string;
 
-  @ApiProperty({
-    example: 'NewPassword123!',
-    description: 'New password (min 8 characters)',
-  })
+  @ApiProperty({ example: 'NewPassword1!' })
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @IsStrongPassword()
   newPassword: string;
 }

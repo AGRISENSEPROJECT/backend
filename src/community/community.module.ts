@@ -14,6 +14,7 @@ import { ConversationMember } from '../entities/conversation-member.entity';
 import { Message } from '../entities/message.entity';
 import { UserBlock } from '../entities/user-block.entity';
 import { PostReaction } from '../entities/post-reaction.entity';
+import { PostReport } from '../entities/post-report.entity';
 import { MessageReceipt } from '../entities/message-receipt.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { AuthModule } from '../auth/auth.module';
@@ -31,6 +32,7 @@ import { AuthModule } from '../auth/auth.module';
       UserBlock,
       PostReaction,
       MessageReceipt,
+      PostReport,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
