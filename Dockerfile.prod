@@ -2,17 +2,14 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-RUN corepack enable
-
-COPY package.json yarn.lock ./
-
-RUN yarn install --immutable
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY nest-cli.json tsconfig.json tsconfig.build.json ./
 COPY src ./src
 COPY scripts ./scripts
 
-RUN yarn build && yarn workspaces focus --production
+RUN npm run build && npm prune --omit=dev
 
 FROM node:20-alpine AS runner
 
@@ -22,14 +19,12 @@ ENV NODE_ENV=production
 RUN apk add --no-cache curl \
   && addgroup -S app && adduser -S app -G app
 
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/yarn.lock ./
+COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 
 USER app
-
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
