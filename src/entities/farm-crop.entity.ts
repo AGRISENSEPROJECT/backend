@@ -40,10 +40,10 @@ export class FarmCrop {
   @Column()
   cropType: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   variety: string | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   plantingSeason: string | null;
 
   @Column({ nullable: true, type: 'date' })
@@ -52,7 +52,7 @@ export class FarmCrop {
   @Column({ nullable: true, type: 'date' })
   expectedHarvestDate: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   harvestSeason: string | null;
 
   @Column({

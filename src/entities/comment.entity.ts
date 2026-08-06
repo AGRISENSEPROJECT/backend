@@ -21,7 +21,7 @@ export class Comment {
   content: string;
 
   @Index()
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   parentId: string | null;
 
   @ManyToOne(() => Comment, (comment) => comment.replies, {

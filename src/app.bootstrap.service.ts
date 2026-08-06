@@ -49,6 +49,11 @@ export class AppBootstrapService implements OnApplicationBootstrap {
   }
 
   private async runPendingSqlMigrations() {
+    if (this.configService.get<string>('NODE_ENV') === 'development') {
+      this.logger.log('Skipping SQL migrations in development; relying on TypeORM schema sync.');
+      return;
+    }
+
     await this.dataSource.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         id SERIAL PRIMARY KEY,

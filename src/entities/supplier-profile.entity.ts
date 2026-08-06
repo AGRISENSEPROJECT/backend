@@ -25,7 +25,7 @@ export class SupplierProfile {
   @Column()
   businessName: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'text' })
   businessDescription: string | null;
 
   @Column()
@@ -34,16 +34,16 @@ export class SupplierProfile {
   @Column()
   businessCategory: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   contactPhone: string | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   contactEmail: string | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   logoUrl: string | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   businessLicenseUrl: string | null;
 
   @Column({ nullable: true, type: 'simple-array' })
@@ -75,7 +75,7 @@ export class SupplierProfile {
   })
   verificationStatus: ApprovalStatus;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'text' })
   rejectionReason: string | null;
 
   @CreateDateColumn()

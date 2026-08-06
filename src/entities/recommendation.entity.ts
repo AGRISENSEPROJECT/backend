@@ -71,25 +71,25 @@ export class Recommendation {
   @Column({ default: false })
   isPrimary: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   cropType: string | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   growingSeason: string | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   soilType: string | null;
 
   @Column({ nullable: true, type: 'jsonb' })
   weatherConditions: Record<string, unknown> | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   diseasePrediction: string | null;
 
   @Column({ nullable: true, type: 'decimal', precision: 5, scale: 4 })
   confidenceScore: number | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   aiModelVersion: string | null;
 
   @CreateDateColumn()

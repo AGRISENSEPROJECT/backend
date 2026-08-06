@@ -28,7 +28,7 @@ export class AgriculturalProgram {
   @Column({ nullable: true, type: 'simple-array' })
   targetRegions: string[] | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   budget: string | null;
 
   @Column({ default: true })
