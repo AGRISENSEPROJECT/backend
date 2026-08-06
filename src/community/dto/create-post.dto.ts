@@ -14,7 +14,16 @@ import { Transform } from 'class-transformer';
 
 export class CreatePostDto {
   @ApiProperty({
-    description: 'Post text content (supports @mentions and #hashtags)',
+    description: 'Short title shown on dashboard cards',
+    example: 'Tomato harvest tips this week',
+  })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  title: string;
+
+  @ApiProperty({
+    description: 'Post body (supports @mentions and #hashtags)',
     example: 'Just harvested my tomatoes! @jane #harvest',
   })
   @IsString()
@@ -32,6 +41,13 @@ export class CreatePostDto {
 }
 
 export class UpdatePostDto {
+  @ApiPropertyOptional({ description: 'Updated short title' })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  title?: string;
+
   @ApiProperty({ description: 'Updated post text' })
   @IsString()
   @MinLength(1)

@@ -18,6 +18,9 @@ export class Post {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  title: string | null;
+
   @Column({ nullable: true })
   description: string;
 

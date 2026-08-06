@@ -74,6 +74,7 @@ export class CommunityController {
     }
     return this.communityService.createPost(
       req.user,
+      dto.title,
       dto.description,
       image,
     );
@@ -122,6 +123,7 @@ export class CommunityController {
       id,
       dto.description,
       image,
+      dto.title,
     );
   }
 

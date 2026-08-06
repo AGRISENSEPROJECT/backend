@@ -145,6 +145,7 @@ export class CommunityService {
 
     return {
       id: post.id,
+      title: post.title ?? null,
       description: post.description,
       imageUrl: post.imageUrl ?? null,
       hashtags: post.hashtags ?? [],
@@ -194,10 +195,15 @@ export class CommunityService {
 
   async createPost(
     user: User,
+    title: string,
     description: string,
     image?: Express.Multer.File,
   ) {
+    const trimmedTitle = title?.trim();
     const trimmed = description?.trim();
+    if (!trimmedTitle) {
+      throw new BadRequestException('Post title is required');
+    }
     if (!trimmed) {
       throw new BadRequestException('Post description is required');
     }
@@ -207,12 +213,13 @@ export class CommunityService {
       );
     }
 
-    const hashtags = this.extractHashtags(trimmed);
+    const hashtags = this.extractHashtags(`${trimmedTitle} ${trimmed}`);
     const mentionUsernames = this.extractMentions(trimmed);
     const imageUrl = await this.cloudinaryService.uploadPostImage(image);
 
     const post = this.postRepository.create({
       user,
+      title: trimmedTitle,
       description: trimmed,
       imageUrl,
       hashtags,
@@ -251,6 +258,7 @@ export class CommunityService {
     postId: string,
     description: string,
     image?: Express.Multer.File,
+    title?: string,
   ) {
     const trimmed = description?.trim();
     if (!trimmed) {
@@ -266,8 +274,18 @@ export class CommunityService {
       throw new ForbiddenException('You can only edit your own posts');
     }
 
+    if (title !== undefined) {
+      const trimmedTitle = title?.trim();
+      if (!trimmedTitle) {
+        throw new BadRequestException('Post title is required');
+      }
+      post.title = trimmedTitle;
+    }
+
     post.description = trimmed;
-    post.hashtags = this.extractHashtags(trimmed);
+    post.hashtags = this.extractHashtags(
+      `${post.title || ''} ${trimmed}`.trim(),
+    );
     post.mentions = this.extractMentions(trimmed);
 
     if (image) {
@@ -313,9 +331,12 @@ export class CommunityService {
       .take(take);
 
     if (q?.trim()) {
-      qb.andWhere('LOWER(post.description) LIKE :q', {
-        q: `%${q.trim().toLowerCase()}%`,
-      });
+      qb.andWhere(
+        '(LOWER(post.description) LIKE :q OR LOWER(COALESCE(post.title, \'\')) LIKE :q)',
+        {
+          q: `%${q.trim().toLowerCase()}%`,
+        },
+      );
     }
     if (hashtag?.trim()) {
       const tag = hashtag.replace(/^#/, '').toLowerCase();
