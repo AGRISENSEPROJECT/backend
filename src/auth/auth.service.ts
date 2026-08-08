@@ -3,6 +3,8 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -27,6 +29,10 @@ import { AuditService } from '../common/services/audit.service';
 import { AuditAction } from '../entities/audit-log.entity';
 import { NATIONAL_ID_REGEX } from '../common/validators/password.validator';
 import { userDisplayName } from '../common/utils/author.mapper';
+import { BillingService } from '../billing/billing.service';
+import { EntitlementsService } from '../billing/entitlements.service';
+import { getPlanDefinition } from '../billing/plan.definitions';
+import { PlanId } from '../billing/billing.enums';
 
 @Injectable()
 export class AuthService {
@@ -42,6 +48,10 @@ export class AuthService {
     private cloudinaryService: CloudinaryService,
     private tokenVerificationService: TokenVerificationService,
     private auditService: AuditService,
+    @Inject(forwardRef(() => BillingService))
+    private billingService: BillingService,
+    @Inject(forwardRef(() => EntitlementsService))
+    private entitlementsService: EntitlementsService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -84,6 +94,7 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
+    await this.billingService.ensureStarterSubscription(user.id);
     await this.sendEmailVerification(email);
     await this.auditService.log(AuditAction.REGISTER, user.id, email);
 
@@ -147,6 +158,11 @@ export class AuthService {
     if (!user.nationalId) {
       throw new BadRequestException('Complete identity verification first');
     }
+
+    const existingFarms = await this.farmRepository.count({
+      where: { userId, isArchived: false },
+    });
+    await this.entitlementsService.assertCanCreateFarm(userId, existingFarms);
 
     const farm = this.farmRepository.create({
       name: dto.name,
@@ -228,6 +244,7 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
+    await this.billingService.ensureStarterSubscription(user.id);
     return this.generateTokens(user);
   }
 
@@ -492,6 +509,7 @@ export class AuthService {
       });
 
       await this.userRepository.save(user);
+      await this.billingService.ensureStarterSubscription(user.id);
       console.log(`✅ New Google user created: ${googleUser.email}`);
       
       return this.generateTokens(user);
@@ -546,6 +564,7 @@ export class AuthService {
       });
 
       await this.userRepository.save(user);
+      await this.billingService.ensureStarterSubscription(user.id);
       console.log(`✅ New Facebook user created: ${facebookUser.email}`);
       
       return this.generateTokens(user);
@@ -555,7 +574,19 @@ export class AuthService {
     }
   }
 
-  private mapUserProfile(user: User, farmsCount = 0) {
+  private mapUserProfile(
+    user: User,
+    farmsCount = 0,
+    subscription?: {
+      planId: string;
+      status: string;
+      billingCycle?: string | null;
+      limits: ReturnType<typeof getPlanDefinition>['limits'];
+      cancelAtPeriodEnd?: boolean;
+      currentPeriodEnd?: Date | null;
+    },
+  ) {
+    const starterLimits = getPlanDefinition(PlanId.STARTER).limits;
     const displayName = userDisplayName(user);
     return {
       id: user.id,
@@ -582,7 +613,38 @@ export class AuthService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       farmsCount,
+      subscription: subscription || {
+        planId: PlanId.STARTER,
+        status: 'active',
+        billingCycle: null,
+        limits: starterLimits,
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: null,
+      },
     };
+  }
+
+  private async getSubscriptionSummary(userId: string) {
+    try {
+      const { subscription } = await this.billingService.getCurrentSubscription(userId);
+      return {
+        planId: subscription.planId,
+        status: subscription.status,
+        billingCycle: subscription.billingCycle,
+        limits: subscription.limits,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+      };
+    } catch {
+      return {
+        planId: PlanId.STARTER,
+        status: 'active',
+        billingCycle: null,
+        limits: getPlanDefinition(PlanId.STARTER).limits,
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: null,
+      };
+    }
   }
 
   private async generateTokens(user: User) {
@@ -609,12 +671,13 @@ export class AuthService {
     await this.redisService.set(`refresh:${user.id}:${refreshToken}`, 'valid', refreshTokenExpiry);
     
     const farmsCount = user.farms ? user.farms.length : 0;
+    const subscription = await this.getSubscriptionSummary(user.id);
 
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_in: this.configService.get('JWT_EXPIRES_IN') || '15m',
-      user: this.mapUserProfile(user, farmsCount),
+      user: this.mapUserProfile(user, farmsCount, subscription),
     };
   }
 
@@ -674,7 +737,8 @@ export class AuthService {
     });
     if (!user) throw new BadRequestException('User not found');
     const farmsCount = user.farms?.length || 0;
-    return { user: this.mapUserProfile(user, farmsCount) };
+    const subscription = await this.getSubscriptionSummary(userId);
+    return { user: this.mapUserProfile(user, farmsCount, subscription) };
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {

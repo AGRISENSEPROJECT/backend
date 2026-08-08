@@ -9,6 +9,7 @@ import { Farm } from '../entities/farm.entity';
 import { User } from '../entities/user.entity';
 import { CreateFarmDto, UpdateFarmDto } from './dto/create-farm.dto';
 import { CloudinaryService } from '../auth/cloudinary.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 
 @Injectable()
 export class FarmService {
@@ -18,6 +19,7 @@ export class FarmService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private cloudinaryService: CloudinaryService,
+    private entitlementsService: EntitlementsService,
   ) {}
 
   async createFarm(userId: string, createFarmDto: CreateFarmDto) {
@@ -27,6 +29,7 @@ export class FarmService {
     const existingFarms = await this.farmRepository.count({
       where: { userId, isArchived: false },
     });
+    await this.entitlementsService.assertCanCreateFarm(userId, existingFarms);
 
     const farm = this.farmRepository.create({
       ...createFarmDto,
