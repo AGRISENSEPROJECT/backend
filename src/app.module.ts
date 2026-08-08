@@ -37,9 +37,14 @@ import { UserBlock } from './entities/user-block.entity';
 import { PostReaction } from './entities/post-reaction.entity';
 import { MessageReceipt } from './entities/message-receipt.entity';
 import { WaitlistEntry } from './entities/waitlist-entry.entity';
+import { SubscriptionPlan } from './entities/subscription-plan.entity';
+import { UserSubscription } from './entities/user-subscription.entity';
+import { PaymentTransaction } from './entities/payment-transaction.entity';
+import { EnterpriseLead } from './entities/enterprise-lead.entity';
 import { PredictionModule } from './prediction/prediction.module';
 import { CommonModule } from './common/common.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
+import { BillingModule } from './billing/billing.module';
 import { AppBootstrapService } from './app.bootstrap.service';
 
 @Module({
@@ -94,6 +99,10 @@ import { AppBootstrapService } from './app.bootstrap.service';
             PostReaction,
             MessageReceipt,
             WaitlistEntry,
+            SubscriptionPlan,
+            UserSubscription,
+            PaymentTransaction,
+            EnterpriseLead,
           ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
@@ -128,6 +137,7 @@ import { AppBootstrapService } from './app.bootstrap.service';
     SupplierModule,
     RegionalModule,
     WaitlistModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppBootstrapService],

@@ -28,6 +28,44 @@ export class EmailService {
     return this.sendEmail(email, otp, 'reset');
   }
 
+  async sendEnterpriseLeadEmail(input: {
+    to: string;
+    lead: {
+      id: string;
+      organizationName: string;
+      contactName: string;
+      contactEmail: string;
+      contactPhone: string | null;
+      message: string;
+      userId: string | null;
+    };
+  }) {
+    const recipient = input.to?.trim();
+    if (!recipient) {
+      throw new Error('Sales recipient email is required');
+    }
+
+    const lead = input.lead;
+    const subject = `[AgriSense] Enterprise inquiry — ${lead.organizationName}`;
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; color: #1a1a1a; line-height: 1.5;">
+  <h2>New Enterprise inquiry</h2>
+  <p><strong>Organization:</strong> ${this.escapeHtml(lead.organizationName)}</p>
+  <p><strong>Contact:</strong> ${this.escapeHtml(lead.contactName)}</p>
+  <p><strong>Email:</strong> ${this.escapeHtml(lead.contactEmail)}</p>
+  <p><strong>Phone:</strong> ${this.escapeHtml(lead.contactPhone || '—')}</p>
+  <p><strong>User ID:</strong> ${this.escapeHtml(lead.userId || 'anonymous')}</p>
+  <p><strong>Lead ID:</strong> ${this.escapeHtml(lead.id)}</p>
+  <hr />
+  <p>${this.escapeHtml(lead.message).replace(/\n/g, '<br/>')}</p>
+</body>
+</html>`;
+
+    await this.sendHtmlEmail(recipient, subject, emailHtml);
+  }
+
   async sendWaitlistWelcomeEmail(input: {
     email: string;
     fullName: string;

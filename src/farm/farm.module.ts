@@ -7,9 +7,10 @@ import { Farm } from '../entities/farm.entity';
 import { User } from '../entities/user.entity';
 import { FarmCrop } from '../entities/farm-crop.entity';
 import { CloudinaryService } from '../auth/cloudinary.service';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Farm, User, FarmCrop])],
+  imports: [TypeOrmModule.forFeature([Farm, User, FarmCrop]), BillingModule],
   controllers: [FarmController],
   providers: [FarmService, FarmCropService, CloudinaryService],
   exports: [FarmService, FarmCropService],
