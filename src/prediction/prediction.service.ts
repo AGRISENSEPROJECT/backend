@@ -155,7 +155,7 @@ export class PredictionService {
               rainfall: dto.rainfall,
             },
             diseasePrediction: (summary.disease as string) ?? (summary.predictedDisease as string) ?? null,
-            confidenceScore: summary.confidence != null ? Number(summary.confidence) : null,
+            confidenceScore: this.normalizeConfidenceScore(summary.confidence),
             aiModelVersion: modelVersion,
           }),
         );
@@ -596,6 +596,17 @@ export class PredictionService {
     }
 
     return recommendations;
+  }
+
+  /** Persist 0–100 model percentages into DECIMAL(5,2); ignore NaN / out-of-range. */
+  private normalizeConfidenceScore(value: unknown): number | null {
+    if (value == null || value === '') return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    // Accept 0–1 ratios from older model payloads
+    const percent = n > 0 && n <= 1 ? n * 100 : n;
+    if (percent < 0 || percent > 999.99) return null;
+    return Math.round(percent * 100) / 100;
   }
 
   private findCategoryBlock(response: PlainObject, keyword: string): PlainObject | null {

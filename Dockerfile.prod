@@ -8,6 +8,7 @@ RUN npm ci
 COPY nest-cli.json tsconfig.json tsconfig.build.json ./
 COPY src ./src
 COPY scripts ./scripts
+COPY migrations ./migrations
 
 RUN npm run build && npm prune --omit=dev
 
@@ -23,6 +24,7 @@ COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/migrations ./migrations
 
 USER app
 EXPOSE 3000

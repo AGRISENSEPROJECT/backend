@@ -30,14 +30,9 @@ import { CommunityGateway } from './community.gateway';
 import { PostReport, ReportStatus } from '../entities/post-report.entity';
 import { UserRole } from '../common/enums/user-role.enum';
 import { ReportPostDto } from './dto/create-post.dto';
+import { isDeletedUser, mapToAuthor, userDisplayName } from '../common/utils/author.mapper';
 
-type AuthorDto = {
-  id: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  email?: string;
-  profileImage?: string | null;
-};
+type AuthorDto = NonNullable<ReturnType<typeof mapToAuthor>>;
 
 @Injectable()
 export class CommunityService {
@@ -72,19 +67,11 @@ export class CommunityService {
   ) {}
 
   private toAuthor(user?: User | null): AuthorDto | null {
-    if (!user) return null;
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      profileImage: user.profileImage ?? null,
-    };
+    return mapToAuthor(user);
   }
 
   private displayName(user: User): string {
-    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
-    return name || user.email;
+    return userDisplayName(user);
   }
 
   private extractHashtags(text: string): string[] {
@@ -121,6 +108,12 @@ export class CommunityService {
     return ids;
   }
 
+  private assertVisibleCommunityPost(post: Post) {
+    if (isDeletedUser(post.user)) {
+      throw new NotFoundException('Post not found');
+    }
+  }
+
   private async assertNotBlocked(actorId: string, otherUserId: string) {
     const block = await this.blockRepository.findOne({
       where: [
@@ -148,7 +141,9 @@ export class CommunityService {
   private serializePost(post: Post, currentUserId?: string) {
     const likes = post.likes || [];
     const reactions = post.reactions || [];
-    const comments = (post.comments || []).map((c) => this.serializeComment(c));
+    const comments = (post.comments || [])
+      .filter((c) => !isDeletedUser(c.user))
+      .map((c) => this.serializeComment(c));
 
     const reactionCounts: Record<string, number> = {};
     for (const reaction of reactions) {
@@ -333,6 +328,7 @@ export class CommunityService {
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.user', 'user')
       .where('post.isHidden = :hidden', { hidden: false })
+      .andWhere('user.deletedAt IS NULL')
       .leftJoinAndSelect('post.comments', 'comments')
       .leftJoinAndSelect('comments.user', 'commentUser')
       .leftJoinAndSelect('post.likes', 'likes')
@@ -397,6 +393,7 @@ export class CommunityService {
   async sharePost(user: User, postId: string) {
     const post = await this.loadPost(postId);
     if (!post) throw new NotFoundException('Post not found');
+    this.assertVisibleCommunityPost(post);
     if (post.user?.id) {
       await this.assertNotBlocked(user.id, post.user.id);
     }
@@ -417,6 +414,7 @@ export class CommunityService {
       relations: ['user'],
     });
     if (!post) throw new NotFoundException('Post not found');
+    this.assertVisibleCommunityPost(post);
     if (post.user?.id) {
       await this.assertNotBlocked(user.id, post.user.id);
     }
@@ -478,6 +476,7 @@ export class CommunityService {
       relations: ['user'],
     });
     if (!post) throw new NotFoundException('Post not found');
+    this.assertVisibleCommunityPost(post);
     if (post.user?.id) {
       await this.assertNotBlocked(user.id, post.user.id);
     }
@@ -561,6 +560,7 @@ export class CommunityService {
       relations: ['user'],
     });
     if (!post) throw new NotFoundException('Post not found');
+    this.assertVisibleCommunityPost(post);
     if (post.user?.id) {
       await this.assertNotBlocked(user.id, post.user.id);
     }
@@ -707,6 +707,7 @@ export class CommunityService {
       .createQueryBuilder('user')
       .select(['user.id', 'user.firstName', 'user.lastName', 'user.email', 'user.profileImage'])
       .where('user.id != :currentUserId', { currentUserId })
+      .andWhere('user.deletedAt IS NULL')
       .orderBy('user.firstName', 'ASC')
       .addOrderBy('user.lastName', 'ASC')
       .take(20);
@@ -756,9 +757,12 @@ export class CommunityService {
       name:
         conversation.type === ConversationType.GROUP
           ? conversation.name
-          : [otherMembers[0]?.firstName, otherMembers[0]?.lastName]
+          : otherMembers[0]?.displayName ||
+            [otherMembers[0]?.firstName, otherMembers[0]?.lastName]
               .filter(Boolean)
-              .join(' ') || otherMembers[0]?.email || 'Direct chat',
+              .join(' ') ||
+            otherMembers[0]?.email ||
+            'Direct chat',
       imageUrl: conversation.imageUrl ?? null,
       createdById: conversation.createdBy?.id ?? null,
       members,
@@ -858,7 +862,9 @@ export class CommunityService {
     const other = await this.userRepository.findOne({
       where: { id: otherUserId },
     });
-    if (!other) throw new NotFoundException('User not found');
+    if (!other || isDeletedUser(other)) {
+      throw new NotFoundException('User not found');
+    }
 
     const existing = await this.conversationRepository
       .createQueryBuilder('conversation')
@@ -913,7 +919,10 @@ export class CommunityService {
     const members = await this.userRepository.find({
       where: { id: In(uniqueIds) },
     });
-    if (members.length !== uniqueIds.length) {
+    if (
+      members.length !== uniqueIds.length ||
+      members.some((m) => isDeletedUser(m))
+    ) {
       throw new BadRequestException('One or more members were not found');
     }
 
@@ -1026,6 +1035,9 @@ export class CommunityService {
     const users = await this.userRepository.find({
       where: { id: In(uniqueIds) },
     });
+    if (users.some((m) => isDeletedUser(m)) || users.length !== uniqueIds.length) {
+      throw new BadRequestException('One or more members were not found');
+    }
     for (const member of users) {
       await this.memberRepository.save(
         this.memberRepository.create({
@@ -1396,8 +1408,12 @@ export class CommunityService {
   }
 
   async reportPost(user: User, postId: string, dto: ReportPostDto) {
-    const post = await this.postRepository.findOne({ where: { id: postId } });
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['user'],
+    });
     if (!post) throw new NotFoundException('Post not found');
+    this.assertVisibleCommunityPost(post);
 
     const existing = await this.reportRepository.findOne({
       where: { postId, reporterId: user.id },
