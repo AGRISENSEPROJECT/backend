@@ -30,7 +30,12 @@ import { CommunityGateway } from './community.gateway';
 import { PostReport, ReportStatus } from '../entities/post-report.entity';
 import { UserRole } from '../common/enums/user-role.enum';
 import { ReportPostDto } from './dto/create-post.dto';
-import { isDeletedUser, mapToAuthor, userDisplayName } from '../common/utils/author.mapper';
+import {
+  isHiddenFromCommunity,
+  mapToAuthor,
+  userDisplayName,
+} from '../common/utils/author.mapper';
+import { UserStatus } from '../common/enums/user-status.enum';
 
 type AuthorDto = NonNullable<ReturnType<typeof mapToAuthor>>;
 
@@ -109,7 +114,7 @@ export class CommunityService {
   }
 
   private assertVisibleCommunityPost(post: Post) {
-    if (isDeletedUser(post.user)) {
+    if (isHiddenFromCommunity(post.user)) {
       throw new NotFoundException('Post not found');
     }
   }
@@ -139,10 +144,12 @@ export class CommunityService {
   }
 
   private serializePost(post: Post, currentUserId?: string) {
-    const likes = post.likes || [];
-    const reactions = post.reactions || [];
+    const likes = (post.likes || []).filter((like) => !isHiddenFromCommunity(like.user));
+    const reactions = (post.reactions || []).filter(
+      (reaction) => !isHiddenFromCommunity(reaction.user),
+    );
     const comments = (post.comments || [])
-      .filter((c) => !isDeletedUser(c.user))
+      .filter((c) => !isHiddenFromCommunity(c.user))
       .map((c) => this.serializeComment(c));
 
     const reactionCounts: Record<string, number> = {};
@@ -330,6 +337,7 @@ export class CommunityService {
       .leftJoinAndSelect('post.user', 'user')
       .where('post.isHidden = :hidden', { hidden: false })
       .andWhere('user.deletedAt IS NULL')
+      .andWhere('user.status != :banned', { banned: UserStatus.BANNED })
       .leftJoinAndSelect('post.comments', 'comments')
       .leftJoinAndSelect('comments.user', 'commentUser')
       .leftJoinAndSelect('post.likes', 'likes')
@@ -716,6 +724,7 @@ export class CommunityService {
       .select(['user.id', 'user.firstName', 'user.lastName', 'user.email', 'user.profileImage'])
       .where('user.id != :currentUserId', { currentUserId })
       .andWhere('user.deletedAt IS NULL')
+      .andWhere('user.status != :banned', { banned: UserStatus.BANNED })
       .orderBy('user.firstName', 'ASC')
       .addOrderBy('user.lastName', 'ASC')
       .take(20);
@@ -878,7 +887,7 @@ export class CommunityService {
     const other = await this.userRepository.findOne({
       where: { id: otherUserId },
     });
-    if (!other || isDeletedUser(other)) {
+    if (!other || isHiddenFromCommunity(other)) {
       throw new NotFoundException('User not found');
     }
 
@@ -937,7 +946,7 @@ export class CommunityService {
     });
     if (
       members.length !== uniqueIds.length ||
-      members.some((m) => isDeletedUser(m))
+      members.some((m) => isHiddenFromCommunity(m))
     ) {
       throw new BadRequestException('One or more members were not found');
     }
@@ -1051,7 +1060,7 @@ export class CommunityService {
     const users = await this.userRepository.find({
       where: { id: In(uniqueIds) },
     });
-    if (users.some((m) => isDeletedUser(m)) || users.length !== uniqueIds.length) {
+    if (users.some((m) => isHiddenFromCommunity(m)) || users.length !== uniqueIds.length) {
       throw new BadRequestException('One or more members were not found');
     }
     for (const member of users) {

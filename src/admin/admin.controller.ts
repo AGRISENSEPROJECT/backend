@@ -157,7 +157,10 @@ export class AdminController {
   }
 
   @Delete('users/:id')
-  @ApiOperation({ summary: 'Soft delete user (blocked for self/other admins)' })
+  @ApiOperation({
+    summary:
+      'Soft delete user (hides community content, reserves email/phone so they cannot re-register)',
+  })
   softDeleteUser(@Req() req: Request, @Param('id') id: string) {
     return this.adminService.softDeleteUser(id, this.actorId(req));
   }

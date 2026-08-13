@@ -299,7 +299,10 @@ export class AuthService {
       };
     }
 
-    if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.BANNED) {
+    if (user.status === UserStatus.BANNED) {
+      throw new UnauthorizedException('Your account has been banned');
+    }
+    if (user.status === UserStatus.SUSPENDED) {
       throw new UnauthorizedException('Your account has been suspended');
     }
 
@@ -457,12 +460,15 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.BANNED) {
-      throw new UnauthorizedException('Your account has been suspended');
-    }
-
     if (user.deletedAt) {
       throw new UnauthorizedException('Account has been deleted');
+    }
+
+    if (user.status === UserStatus.BANNED) {
+      throw new UnauthorizedException('Your account has been banned');
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Your account has been suspended');
     }
     
     return user;
@@ -647,7 +653,21 @@ export class AuthService {
     }
   }
 
+  private assertAccountAllowed(user: User) {
+    if (user.deletedAt) {
+      throw new UnauthorizedException('Account has been deleted');
+    }
+    if (user.status === UserStatus.BANNED) {
+      throw new UnauthorizedException('Your account has been banned');
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Your account has been suspended');
+    }
+  }
+
   private async generateTokens(user: User) {
+    this.assertAccountAllowed(user);
+
     const payload = {
       email: user.email,
       sub: user.id,

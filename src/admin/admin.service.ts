@@ -297,11 +297,9 @@ export class AdminService {
   ) {
     const qb = this.userRepository.createQueryBuilder('user');
 
-    const showRemoved =
-      includeDeleted ||
-      status === UserStatus.BANNED ||
-      status === UserStatus.SUSPENDED;
-    if (!showRemoved) {
+    if (includeDeleted) {
+      qb.where('user.deletedAt IS NOT NULL');
+    } else {
       qb.where('user.deletedAt IS NULL');
     }
 
@@ -336,6 +334,10 @@ export class AdminService {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
 
+    if (user.deletedAt) {
+      throw new BadRequestException('Restore the account before changing status');
+    }
+
     if (dto.status === UserStatus.SUSPENDED || dto.status === UserStatus.BANNED) {
       this.assertNotTargetingAdmin(actorId, user, 'suspend or ban');
     }
@@ -363,6 +365,9 @@ export class AdminService {
   async reactivateUser(id: string, actorId: string) {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
+    if (user.deletedAt) {
+      throw new BadRequestException('Restore the deleted account before reactivating');
+    }
     this.assertNotTargetingAdmin(actorId, user, 'modify status of');
     return this.updateUserStatus(id, { status: UserStatus.ACTIVE }, actorId);
   }
@@ -422,7 +427,6 @@ export class AdminService {
     this.assertNotTargetingAdmin(actorId, user, 'delete');
 
     user.deletedAt = new Date();
-    user.status = UserStatus.BANNED;
     await this.userRepository.save(user);
     await this.auditService.log(AuditAction.USER_DELETED, actorId || id, user.email, {
       targetUserId: id,
@@ -664,10 +668,10 @@ export class AdminService {
       where: { approvalStatus: ApprovalStatus.PENDING },
     });
     const suspendedUsers = await this.userRepository.count({
-      where: { status: UserStatus.SUSPENDED },
+      where: { status: UserStatus.SUSPENDED, deletedAt: IsNull() },
     });
     const bannedUsers = await this.userRepository.count({
-      where: { status: UserStatus.BANNED },
+      where: { status: UserStatus.BANNED, deletedAt: IsNull() },
     });
     const reportedPosts = await this.postRepository.count({
       where: { isReported: true },

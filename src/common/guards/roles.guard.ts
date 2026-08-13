@@ -23,7 +23,10 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied');
     }
 
-    if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.BANNED) {
+    if (user.status === UserStatus.BANNED) {
+      throw new ForbiddenException('Your account has been banned');
+    }
+    if (user.status === UserStatus.SUSPENDED) {
       throw new ForbiddenException('Your account has been suspended');
     }
 
