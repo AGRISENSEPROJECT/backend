@@ -165,6 +165,7 @@ export class CommunityService {
       })),
       likeCount: likes.length,
       commentCount: comments.length,
+      shareCount: Number(post.shareCount) || 0,
       likedByMe: currentUserId
         ? likes.some((like) => like.user?.id === currentUserId)
         : false,
@@ -398,13 +399,20 @@ export class CommunityService {
       await this.assertNotBlocked(user.id, post.user.id);
     }
 
+    await this.postRepository.increment({ id: postId }, 'shareCount', 1);
+    const shareCount = (Number(post.shareCount) || 0) + 1;
+
     const base =
-      process.env.FRONTEND_URL?.replace(/\/$/, '') || 'https://agrisense.rw';
+      process.env.PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://agrisense.rw';
+    const snippet = (post.title || post.description || 'Farm update').trim();
     return {
       postId,
-      shareUrl: `${base}/community/posts/${postId}`,
+      shareCount,
+      shareUrl: `${base}/community?postId=${postId}`,
+      title: post.title ?? null,
       description: post.description,
       author: this.toAuthor(post.user),
+      snippet: snippet.slice(0, 140),
     };
   }
 

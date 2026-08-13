@@ -39,6 +39,9 @@ export class Post {
   @Column({ type: 'jsonb', nullable: true, default: null })
   mentions: string[] | null;
 
+  @Column({ type: 'int', default: 0 })
+  shareCount: number;
+
   @ManyToOne(() => User, (user) => user.posts)
   @JoinColumn({ name: 'userId' })
   user: User;

@@ -140,7 +140,7 @@ export class CommunityController {
   }
 
   @Post('posts/:id/share')
-  @ApiOperation({ summary: 'Get a share payload for a post' })
+  @ApiOperation({ summary: 'Record a share and return a public post link' })
   sharePost(@Req() req, @Param('id') id: string) {
     return this.communityService.sharePost(req.user, id);
   }
