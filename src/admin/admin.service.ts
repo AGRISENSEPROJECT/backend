@@ -297,7 +297,11 @@ export class AdminService {
   ) {
     const qb = this.userRepository.createQueryBuilder('user');
 
-    if (!includeDeleted) {
+    const showRemoved =
+      includeDeleted ||
+      status === UserStatus.BANNED ||
+      status === UserStatus.SUSPENDED;
+    if (!showRemoved) {
       qb.where('user.deletedAt IS NULL');
     }
 
@@ -660,10 +664,10 @@ export class AdminService {
       where: { approvalStatus: ApprovalStatus.PENDING },
     });
     const suspendedUsers = await this.userRepository.count({
-      where: { status: UserStatus.SUSPENDED, deletedAt: IsNull() },
+      where: { status: UserStatus.SUSPENDED },
     });
     const bannedUsers = await this.userRepository.count({
-      where: { status: UserStatus.BANNED, deletedAt: IsNull() },
+      where: { status: UserStatus.BANNED },
     });
     const reportedPosts = await this.postRepository.count({
       where: { isReported: true },

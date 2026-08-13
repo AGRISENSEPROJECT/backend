@@ -748,7 +748,9 @@ export class CommunityService {
     unreadCount = 0,
     muted = false,
   ) {
-    const members = (conversation.members || []).map((m) => this.toAuthor(m.user));
+    const members = (conversation.members || [])
+      .map((m) => this.toAuthor(m.user))
+      .filter((m) => m && !m.deleted);
     const otherMembers = members.filter((m) => m && m.id !== currentUserId);
 
     return {
@@ -829,15 +831,21 @@ export class CommunityService {
       }
       const unreadCount = await unreadQb.getCount();
 
-      results.push(
-        this.serializeConversation(
-          conversation,
-          user.id,
-          lastMessage,
-          unreadCount,
-          !!myMembership?.mutedAt,
-        ),
+      const serialized = this.serializeConversation(
+        conversation,
+        user.id,
+        lastMessage,
+        unreadCount,
+        !!myMembership?.mutedAt,
       );
+      if (
+        serialized.type === 'direct' &&
+        (!serialized.otherMembers?.length ||
+          serialized.otherMembers.every((m) => m?.deleted))
+      ) {
+        continue;
+      }
+      results.push(serialized);
     }
 
     results.sort((a, b) => {
