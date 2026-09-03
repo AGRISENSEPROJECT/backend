@@ -120,7 +120,10 @@ export class PredictionService {
     await this.predictionRunRepository.save(predictionRun);
 
     try {
-      const modelResponse = await this.callModelApi(modelPayload, imageFile);
+      const demoSensor = this.toPlainObject(dto.metadata).demo_sensor === true;
+      const modelResponse = demoSensor
+        ? this.buildDemoSensorResponse(modelPayload)
+        : await this.callModelApi(modelPayload, imageFile);
       const summary = this.extractSummary(modelResponse);
       const recommendations = this.extractRecommendations(modelResponse);
 
@@ -410,6 +413,94 @@ export class PredictionService {
     } catch {
       return { raw: responseText };
     }
+  }
+
+  private buildDemoSensorResponse(payload: PlainObject): PlainObject {
+    return {
+      timestamp: new Date().toISOString(),
+      model_version: 'agrisense-sensor-demo',
+      season: 'Dry season establishment',
+      soil_analysis: {
+        texture: 'sandy loam',
+        moisture: payload.soilMoisture ?? 24,
+        nitrogen: payload.nitrogen ?? 28,
+        phosphorus: payload.phosphorus ?? 18,
+        potassium: payload.potassium ?? 32,
+      },
+      recommendations: [
+        {
+          category: 'crop',
+          best_crop: 'Sorghum',
+          confidence: 86,
+          data: [
+            {
+              crop: 'Sorghum',
+              farmer_summary:
+                'Plant sorghum. It can grow well in this dry, low-nutrient soil and does not need much water.',
+              inama_mu_kinyarwanda:
+                'Tera amasaka. Yihanganira ubutaka bwumye kandi bukennye ku ifumbire kurusha imboga nyinshi.',
+              soil_readings: `Moisture: ${payload.soilMoisture ?? 24}%\nNitrogen: Low (${payload.nitrogen ?? 28})\nPhosphorus: Low (${payload.phosphorus ?? 18})\nPotassium: Medium-low (${payload.potassium ?? 32})\nRainfall: ${payload.rainfall ?? 410} mm`,
+              why_this_crop:
+                'The scan shows dry soil with limited nitrogen and phosphorus. Sorghum is drought tolerant, handles weaker soil, and is a practical first recommendation before soil improvement.',
+            },
+          ],
+        },
+        {
+          category: 'irrigation',
+          data: {
+            status: 'Dry but acceptable for sorghum establishment',
+            soil_moisture: `${payload.soilMoisture ?? 24}%`,
+            next_irrigation:
+              'Water lightly every 4 days for the first 2 weeks, then once per week if there is no rain.',
+            recommended_water_mm: 18,
+            rain_prediction: 'Low rainfall expected this week',
+            tips:
+              'Use mulch around the box/plot to reduce evaporation. Avoid flooding because sorghum roots prefer firm, drained soil.',
+          },
+        },
+        {
+          category: 'fertilizer',
+          data: {
+            ph: '6.2',
+            soil_npk_status: 'N: Low, P: Low, K: Medium-low',
+            recommended_fertilizer:
+              'Small dose of NPK 17-17-17 at planting, then compost or manure before the next season.',
+            organic_alternatives:
+              'Compost, well-rotted manure, and crop residues mixed into the top soil.',
+            description:
+              'The soil can support sorghum, but adding organic matter will improve water holding and early root growth.',
+          },
+        },
+        {
+          category: 'disease',
+          data: {
+            disease: 'Pest prevention for sorghum',
+            status: 'No active disease detected from current scan',
+            symptoms: 'Watch for holes in young leaves, wilting shoots, or yellow patches.',
+            pesticide:
+              'Neem-based botanical spray or locally approved pyrethroid for sorghum stem borer.',
+            dosage:
+              'Mix according to the product label. For a small demo plot, spray only affected leaves and stems lightly.',
+            schedule: 'Inspect after 7 days. Repeat only if new leaf damage appears.',
+            safety:
+              'Spray early morning or late evening, wear gloves, and keep children/animals away until leaves are dry.',
+            treatment:
+              'Scout weekly. Remove affected shoots first, then spray only if pest damage is visible.',
+            preventive_measures:
+              'Keep spacing open, remove old crop residues, and rotate with beans or groundnuts next season.',
+          },
+        },
+        {
+          category: 'weather',
+          data: {
+            today: { temperature: '27', humidity: '54', rainfall: '0' },
+            tomorrow: { temperature: '28', humidity: '51', rainfall: '2' },
+            alerts: 'Dry week ahead. Protect seedlings from heat stress.',
+            recommended_actions: 'Plant in the evening or early morning and water after planting.',
+          },
+        },
+      ],
+    };
   }
 
   private extractSummary(rawResponse: unknown): PlainObject {
