@@ -17,7 +17,7 @@ export const PLAN_DEFINITIONS: PlanDefinition[] = [
     name: 'Starter',
     description: 'Forever free for farmers getting started with AgriSense.',
     features: [
-      '1 farm',
+      'Multiple farms',
       'Basic farm records',
       '3-day weather outlook',
       'Community access',
@@ -26,7 +26,7 @@ export const PLAN_DEFINITIONS: PlanDefinition[] = [
     priceMonthly: 0,
     priceAnnualPerMonth: 0,
     limits: {
-      maxFarms: 1,
+      maxFarms: null,
       weatherDays: 3,
       aiRecommendations: false,
       unlimitedSoilReports: false,
