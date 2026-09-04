@@ -70,6 +70,23 @@ export class PredictionController {
     return this.predictionService.runPrediction(userId, dto, image);
   }
 
+  @Post('run-sensor')
+  @ApiOperation({
+    summary: 'Run sensor-only prediction demo, store soil scan, prediction history, and recommendations',
+  })
+  @ApiBody({ type: CreatePredictionDto })
+  @ApiResponse({ status: 201, description: 'Sensor prediction run completed and stored' })
+  @ApiResponse({ status: 400, description: 'Invalid sensor request' })
+  @ApiResponse({ status: 404, description: 'Farm not found' })
+  async runSensorPrediction(@Req() req: Request, @Body() dto: CreatePredictionDto) {
+    const userId = (req.user as { id: string } | undefined)?.id;
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    return this.predictionService.runSensorDemo(userId, dto);
+  }
+
   @Get('dashboard')
   @ApiOperation({
     summary: 'Get dashboard data: latest soil composition, history, trends, and suggestions',

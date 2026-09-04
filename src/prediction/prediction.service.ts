@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   Injectable,
   NotFoundException,
   Inject,
@@ -66,6 +67,32 @@ export class PredictionService {
     dto: CreatePredictionDto,
     imageFile: Express.Multer.File,
   ) {
+    return this.executePrediction(userId, dto, imageFile);
+  }
+
+  async runSensorDemo(userId: string, dto: CreatePredictionDto) {
+    const metadata = {
+      ...this.toPlainObject(dto.metadata),
+      demo_sensor: true,
+      sensor_source: 'soil_box_demo',
+    };
+
+    return this.executePrediction(
+      userId,
+      {
+        ...dto,
+        source: SoilScanSource.MANUAL,
+        metadata,
+      },
+      undefined,
+    );
+  }
+
+  private async executePrediction(
+    userId: string,
+    dto: CreatePredictionDto,
+    imageFile?: Express.Multer.File,
+  ) {
     const farm = await this.farmRepository.findOne({
       where: { id: dto.farmId, userId },
     });
@@ -93,11 +120,13 @@ export class PredictionService {
       npkRates: dto.npkRates ?? null,
       rawInput: {
         ...this.toPlainObject(dto),
-        image: {
-          originalName: imageFile.originalname,
-          mimeType: imageFile.mimetype,
-          size: imageFile.size,
-        },
+        image: imageFile
+          ? {
+              originalName: imageFile.originalname,
+              mimeType: imageFile.mimetype,
+              size: imageFile.size,
+            }
+          : null,
       },
     });
 
@@ -121,9 +150,15 @@ export class PredictionService {
 
     try {
       const demoSensor = this.toPlainObject(dto.metadata).demo_sensor === true;
-      const modelResponse = demoSensor
-        ? this.buildDemoSensorResponse(modelPayload)
-        : await this.callModelApi(modelPayload, imageFile);
+      let modelResponse: unknown;
+      if (demoSensor) {
+        modelResponse = this.buildDemoSensorResponse(modelPayload);
+      } else {
+        if (!imageFile) {
+          throw new BadRequestException('image file is required');
+        }
+        modelResponse = await this.callModelApi(modelPayload, imageFile);
+      }
       const summary = this.extractSummary(modelResponse);
       const recommendations = this.extractRecommendations(modelResponse);
 
@@ -606,19 +641,13 @@ export class PredictionService {
           const data = this.toPlainObject(block.data);
           const diseaseName = data.disease ?? data.predicted_disease ?? data.name ?? 'Disease Analysis';
           append(RecommendationType.DISEASE, String(diseaseName), block.data);
-          if (data.treatment || data.pesticide) {
-            append(
-              RecommendationType.PESTICIDE,
-              String(data.treatment ?? data.pesticide),
-              { product: data.treatment ?? data.pesticide, disease: diseaseName, ...data },
-            );
-          }
         } else if (category.includes('pesticide') || category.includes('herbicide')) {
-          const type = category.includes('herbicide')
-            ? RecommendationType.HERBICIDE
-            : RecommendationType.PESTICIDE;
           const data = this.toPlainObject(block.data);
-          append(type, String(data.product ?? data.name ?? block.category), block.data);
+          append(
+            RecommendationType.DISEASE,
+            String(data.product ?? data.name ?? block.category),
+            block.data,
+          );
         } else if (category.includes('seed')) {
           const data = Array.isArray(block.data) ? block.data : [block.data];
           data.forEach((item, index) => {
