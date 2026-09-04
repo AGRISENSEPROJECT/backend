@@ -1,5 +1,6 @@
 import { EntitlementsService } from './entitlements.service';
 import { PlanId, SubscriptionStatus } from './billing.enums';
+import { ForbiddenException } from '@nestjs/common';
 
 describe('EntitlementsService', () => {
   const makeService = (subscription: any) => {
@@ -18,13 +19,15 @@ describe('EntitlementsService', () => {
     await expect(service.assertCanCreateFarm('u1', 0)).resolves.toBeUndefined();
   });
 
-  it('allows multiple farms on Starter', async () => {
+  it('blocks additional farms on Starter', async () => {
     const service = makeService({
       planId: PlanId.STARTER,
       status: SubscriptionStatus.ACTIVE,
       isCurrent: true,
     });
-    await expect(service.assertCanCreateFarm('u1', 12)).resolves.toBeUndefined();
+    await expect(service.assertCanCreateFarm('u1', 1)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('allows more farms on Pro', async () => {
