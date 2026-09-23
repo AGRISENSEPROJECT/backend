@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -490,6 +491,11 @@ export class AuthService {
       });
 
       if (user) {
+        if (user.role !== UserRole.FARMER) {
+          throw new ForbiddenException(
+            'This mobile app is for farmer accounts. Please use the web portal for your role.',
+          );
+        }
         // Update user info if needed
         if (!user.providerId && user.provider === AuthProvider.LOCAL) {
           user.provider = AuthProvider.GOOGLE;
@@ -520,6 +526,13 @@ export class AuthService {
       
       return this.generateTokens(user);
     } catch (error) {
+      if (
+        error instanceof ForbiddenException ||
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        throw error;
+      }
       console.error('Google token verification failed:', error);
       throw new BadRequestException('Invalid Google token');
     }
