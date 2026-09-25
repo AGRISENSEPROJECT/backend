@@ -5,70 +5,87 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-api-vps
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test -- --runInBand
+
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_USER: ${{ secrets.VPS_USER }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup SSH
-        env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
         run: |
-          mkdir -p ~/.ssh
+          : "${VPS_SSH_KEY:?Set VPS_SSH_KEY}"
+          : "${VPS_KNOWN_HOSTS:?Set VPS_KNOWN_HOSTS}"
+          : "${VPS_HOST:?Set VPS_HOST}"
+          : "${VPS_USER:?Set VPS_USER}"
+          install -m 700 -d ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "${VPS_PORT:-222}" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Sync backend source to VPS
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          rsync -az --delete \
+          rsync -az --delete-delay \
             --exclude node_modules \
             --exclude dist \
             --exclude .git \
+            --exclude .github \
             --exclude coverage \
             --exclude uploads \
             --exclude temp \
             --exclude '*.log' \
             --exclude .env \
             --exclude .env.* \
-            -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-222} -o StrictHostKeyChecking=yes" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} -o BatchMode=yes -o StrictHostKeyChecking=yes" \
             ./ "${VPS_USER}@${VPS_HOST}:/opt/agrisense/backend/"
 
       - name: Rebuild and restart API
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_PORT: ${{ secrets.VPS_PORT }}
-          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-222}" \
+          ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "${VPS_USER}@${VPS_HOST}" \
-            'cd /opt/agrisense/deploy && docker compose up -d --no-deps --build api'
+            'flock -w 1800 /tmp/agrisense-compose.lock -c "cd /opt/agrisense/deploy && docker compose up -d --no-deps --build api"'
 
       - name: Health check
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          for i in $(seq 1 30); do
-            if curl -fsS "http://${VPS_HOST}/api/health" >/dev/null; then
-              curl -fsS "http://${VPS_HOST}/api/health"
-              echo
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "API health check failed"
-          exit 1
+          curl --fail --silent --show-error --retry 30 --retry-delay 3 --retry-all-errors \
+            https://api.agrisense.rw/api/health
