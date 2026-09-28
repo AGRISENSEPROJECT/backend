@@ -46,7 +46,7 @@ async function bootstrap() {
     .setTitle('Agrisense API')
     .setDescription(
       'Production-ready API documentation for Agrisense.\n\n' +
-        'Modules are grouped by business capability: Authentication, Farms, Predictions, Community, Marketplace, Suppliers, Administration, Regional Operations, Notifications, and Billing.',
+        'Modules are grouped by business capability: Authentication, Farms, Predictions, Community, Marketplace, Suppliers, Administration, Regional Operations, Notifications, Billing, and Finance.',
     )
     .setVersion('1.0')
     .addTag('General', 'General endpoints and health checks')
@@ -64,6 +64,10 @@ async function bootstrap() {
     .addTag(
       'Billing',
       'Subscription plans, Pro checkout (Flutterwave MoMo/Airtel/card), webhooks, enterprise leads, and admin assign/revoke. Currency: RWF.',
+    )
+    .addTag(
+      'Finance',
+      'CFO finance portal: accounts, categories, income/expense transactions, reports, and audit trail. Currency: RWF. Access: CFO and Admin.',
     )
     .addBearerAuth(
       {

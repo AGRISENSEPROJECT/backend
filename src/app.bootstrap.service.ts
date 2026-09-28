@@ -26,9 +26,32 @@ export class AppBootstrapService implements OnApplicationBootstrap {
     }
     this.hasRun = true;
 
+    await this.ensureCfoRoleEnum();
     await this.ensureBaseSchema();
     await this.runPendingSqlMigrations();
     await this.seedAdminUser();
+  }
+
+  private async ensureCfoRoleEnum() {
+    const types = await this.dataSource.query(
+      `
+      SELECT DISTINCT t.typname
+      FROM pg_type t
+      JOIN pg_enum e ON e.enumtypid = t.oid
+      WHERE e.enumlabel IN ('FARMER', 'ADMIN', 'NGO')
+      `,
+    );
+    for (const row of types as Array<{ typname: string }>) {
+      try {
+        await this.dataSource.query(
+          `ALTER TYPE "${row.typname}" ADD VALUE IF NOT EXISTS 'CFO'`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Could not add CFO to enum ${row.typname}: ${(error as Error).message}`,
+        );
+      }
+    }
   }
 
   private async ensureBaseSchema() {

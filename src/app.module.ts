@@ -45,7 +45,12 @@ import { PredictionModule } from './prediction/prediction.module';
 import { CommonModule } from './common/common.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { BillingModule } from './billing/billing.module';
+import { FinanceModule } from './finance/finance.module';
 import { AppBootstrapService } from './app.bootstrap.service';
+import { FinanceAccount } from './entities/finance-account.entity';
+import { FinanceCategory } from './entities/finance-category.entity';
+import { FinanceTransaction } from './entities/finance-transaction.entity';
+import { FinanceAuditLog } from './entities/finance-audit-log.entity';
 
 @Module({
   imports: [
@@ -103,6 +108,10 @@ import { AppBootstrapService } from './app.bootstrap.service';
             UserSubscription,
             PaymentTransaction,
             EnterpriseLead,
+            FinanceAccount,
+            FinanceCategory,
+            FinanceTransaction,
+            FinanceAuditLog,
           ],
           synchronize: configService.get('TYPEORM_SYNCHRONIZE') === 'true' || isDevelopment,
           logging: isDevelopment,
@@ -138,6 +147,7 @@ import { AppBootstrapService } from './app.bootstrap.service';
     RegionalModule,
     WaitlistModule,
     BillingModule,
+    FinanceModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppBootstrapService],

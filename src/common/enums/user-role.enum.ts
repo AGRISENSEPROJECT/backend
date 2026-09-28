@@ -4,4 +4,5 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   NGO = 'NGO',
   GOVERNMENT = 'GOVERNMENT',
+  CFO = 'CFO',
 }
