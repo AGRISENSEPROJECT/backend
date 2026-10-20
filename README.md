@@ -314,6 +314,46 @@ POST /api/auth/facebook/verify-token
 - userId (Foreign Key)
 - timestamps
 
+## VPS deployment checks and rollback
+
+`.github/workflows/deploy-vps.yml` builds and runs the existing unit tests before
+deployment. Pull requests run these checks without accessing VPS credentials or
+deploying. Pushes to `main` and manual runs on `main` deploy after verification.
+
+The runner syncs backend source, then runs `scripts/deploy-api.sh` on the VPS.
+The script holds the deployment lock, saves the running API image as
+`agrisense-api:rollback`, builds the replacement, and creates a database backup
+with the existing `/opt/agrisense/deploy/scripts/backup-host.sh` script before
+replacing the API. Release images are also tagged with the commit and workflow run.
+Image tags accumulate; periodically review disk usage before removing old releases.
+
+After replacement, the script waits for Docker's API health check, reloads Nginx
+to refresh the container address, and checks
+`https://api.agrisense.rw/api/health` with certificate verification enabled.
+If replacement or verification fails, it restores the saved image, checks it
+again, and reports a failed deployment even when recovery succeeds. Failed builds
+or backups leave the running container untouched and restore its normal image tag.
+
+Rollback restores application code, not database contents. Production startup runs
+SQL migrations, so migrations must remain compatible with the preceding API
+version. Review destructive changes separately; automatically restoring a database
+could lose writes made after the backup. This single-container replacement can
+briefly interrupt API requests. A force-killed process or server failure may
+require manual recovery.
+
+If automatic recovery fails, inspect the API logs and the saved image. To retry
+starting the previous image (on the VPS):
+
+```bash
+cd /opt/agrisense/deploy
+docker image tag agrisense-api:rollback agrisense-api:latest
+docker compose up -d --no-deps --no-build --pull never api
+# Once the API is healthy:
+docker compose exec -T nginx nginx -t
+docker compose exec -T nginx nginx -s reload
+curl --fail https://api.agrisense.rw/api/health
+```
+
 ## Contributing
 
 1. Fork the repository

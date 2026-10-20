@@ -4,12 +4,14 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-api-vps
+  group: deploy-api-vps-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -30,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test deployment recovery
+        run: python3 -m unittest discover -s test/deployment -v
+
       - name: Build
         run: npm run build
 
@@ -37,6 +42,7 @@ jobs:
         run: npm test -- --runInBand
 
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -79,13 +85,8 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -p ${VPS_PORT:-22} -o BatchMode=yes -o StrictHostKeyChecking=yes" \
             ./ "${VPS_USER}@${VPS_HOST}:/opt/agrisense/backend/"
 
-      - name: Rebuild and restart API
+      - name: Deploy API with automatic rollback
         run: |
           ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "${VPS_USER}@${VPS_HOST}" \
-            'flock -w 1800 /tmp/agrisense-compose.lock -c "cd /opt/agrisense/deploy && docker compose up -d --no-deps --build api"'
-
-      - name: Health check
-        run: |
-          curl --fail --silent --show-error --retry 30 --retry-delay 3 --retry-all-errors \
-            https://api.agrisense.rw/api/health
+            "bash /opt/agrisense/backend/scripts/deploy-api.sh '${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}'"
